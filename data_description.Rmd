@@ -1,0 +1,114 @@
+---
+title: "Data Description Stats Project"
+author: "Ashley, Olivia, Justin"
+date: "11/16/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE, error=FALSE)
+```
+
+```{r}
+library(dplyr)
+library(forecast)
+```
+
+# Part 1 {.tabset}  
+
+## Source  
+
+The source of our data is the World Development Index found on the World Bank's data explorer. [Data Bank Found Here. ](https://databank.worldbank.org/source/world-development-indicators/preview/on#) The WDI was chosen because of its expansive time series data for countries across the world. For our project, we will be working with Unemployment Rates, Share of Youth not in education, employment or training for the USA, GDP and/or GDP Growth. Unemployment data is broken down over sex and education level (basic, intermediate and advanced), and The Share of Youth values are broken down over sex.  
+
+This data is also available for most countries, but these variables can also be compared across North America, with our specific data download including our 6 variables across USA, Canada, Mexico, and North America overall. For the purposes of this report, we will just talk about the variables for the USA as not to be overly repetitive.  
+
+## Inspiration  
+
+The inspiration involved in choosing our data was primarily data quality followed by interest in the data and forecasting techniques. We looked to the World Bank when we decided to work with time series data, because the data is clean and clearly measures over at least 2 decades for both of our main metrics. The data also allowed for us to consider these metrics across multiple dimensions including sex, nation (within 1 region), and, education level related to unemployment. These indicators are interesting, because they provide an opportunity to forecast and to analyze the relationship between three influential economic indicators. Our forecasts and analysis gives us the opportunity to discuss the trends of these indicators over time and our expectations for them changing in the future (Though the forecasts will not take COVID-19 into account we believe the exercise is still worthwhile).  
+
+## Quick Look  
+
+```{r}
+wdi_data <- read.csv('WDI2.csv') %>% 
+  select(Country=Country.Code, Value=Series.Name, contains("X")) %>% 
+  filter(Country=="USA") %>% 
+  data.frame()
+
+#wdi1 <- wdi_data[c(10, 11, 15, 16, 17, 18),]
+wdi2 <- t(wdi_data)
+
+rownames(wdi2) <- c("Country", "Value",1960:2019)
+colnames(wdi2) <- wdi2[2,]
+
+wdi <- wdi2[-(1:2),]
+tail(wdi)
+```
+
+# Part 2 {.tabset}  
+
+## Data Dimensions  
+In our data set we have 4 main variables:  
+**1) Share of youth not in education employment or training** which can be further segmented into male and female.    
+**2) Unemployment** which can be further segmented into male and female crossed with advanced, intermediate, or basic education levels.  
+**3) GDP growth**   
+**4) GDP (current USD)**
+
+This time series data has a yearly frequency. Total unemployment and GDP is observed from 1960-2019 (59 years), while GDP growth is observed from 1961-2019 (58 years) and share of youth not participating in education, employment, or training is observed from 1994-2019 (25 years). Thus, if all variables were included, we have 25 years of data.
+
+
+# Part 3 {.tabset}  
+
+## Variable Descriptions  
+
+**Main variables**  
+
+* Unemployment, total (% of total labor force) (national estimate)  
+  + The percent share of the labor force in US that is out of work but seeking and available for world (this definition holds for the U.S. specifically).  
+  
+* Share of youth not in education, employment or training, total (% of youth population)  
+
+* GDP (current USD)  
+  + Gross Domestic Product measured in Current USD.  
+  
+* GDP growth (annual %)  
+  + % change in GDP from previous to current year.  
+
+**Segmented variables**  
+
+* Share of youth not in education, employment or training, female (% of female youth population)  
+
+* Share of youth not in education, employment or training, male (% of male youth population)  
+
+* Unemployment with advanced education (% of total labor force with advanced education)  
+  + Unemployment as defined above, percent share of labor force with advanced education. Advanced Education is defined as Bachelors, Master's, or Doctoral degree 
+  
+* Unemployment with advanced education, female (% of female labor force with advanced education)    
+  + Same as total but for women
+
+* Unemployment with advanced education, male (% of male labor force with advanced education)  
+  + Same as total but for men  
+  
+* Unemployment with basic education (% of total labor force with basic education) 
+  + Unemployment as defined above. Percent share of labor force with basic education. Basic education is comprised of primary or lower secondary education.  
+
+* Unemployment with basic education, female (% of female labor force with basic education)  
+  + Same as total but for women  
+  
+* Unemployment with basic education, male (% of male labor force with basic education)  
+  + Same as total but for men  
+  
+* Unemployment with intermediate education (% of total labor force with intermediate education)  
+  + Unemployment as defined above. Percent share of labor force unemployed with intermediate  education level. Intermediate education is comprised of upper secondary or post-secondary non-tertiary education    
+
+* Unemployment with intermediate education, female (% of female labor force with intermediate education)  
+  + Same as total but for women  
+
+* Unemployment with intermediate education, male (% of male labor force with intermediate education)
+  + Same as total but for men  
+  
+* Unemployment, female (% of female labor force) (national estimate)  
+  + Unemployment as a % of female labor force by definition of unemployment given above  
+  
+* Unemployment, male (% of male labor force) (national estimate)  
+  + Unemployment as a % of mail labor force by definition of unemployment given above  
+
