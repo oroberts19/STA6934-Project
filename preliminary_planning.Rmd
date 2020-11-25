@@ -10,24 +10,57 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE, error=FALSE)
 
 # Part 1 {.tabset}  
 With our time series data we plan to:  
+
 1) Forecast US GDP growth   
 2) Analyze how % of youth not in education/training (share of youth NEET) explains current unemployment rate  
 
 # Part 2 {.tabset}  
-Methodology for each respective model includes:  
-1) Forecasting model:  
-Check for constant variance: employ either log transformation or Box-Cox transformation if needed.
-Compare forecasting models (naive, seasonal naive, drift). Use cross validation to confirm which simple forecasting method is best. 
-Perform Box-Jenkins method to fit ARIMA(p,d,q) model
-Validate best model looking at metrics such as AIC and RMSE instead of cross validation because of manual selection process of the best model.  
-Check residuals to further validate best model choice as well as confirm goodness of fit and quality of predictions.
+Because we are looking at forecasting and analyzing the relationship between two time series variables, we are going to report two different methodologies in this section:  
 
-2) Analytical model:
-Confirm correlation between explanatory and response variable
-Fit linear regression model  
-Diagnose residuals (we assume assumptions will be violated). Observe results of Breusch-Godfray test to look for autocorrelations in the linear model's residuals.  
-Fit a dynamic regression on ARIMA errors.  
-Check residuals to confirm no assumptions are violated for goodness of fit.  
-If residual assumptions aren't violated, perform inference and compare results to those of linear regression.  
+## **1) Forecasting model:**  
+
+  a) Check for constant variance: employ either log transformation or Box-Cox transformation if needed.  
+    - in either case we will back-transform our forecasts so they can be reported in our original scale for interpretation.  
+    
+  b) Compare forecasting models (naive, seasonal naive, drift).  
+    - the three simple forecasting models will be used to forecast 5 years past 2013.  
+    - the forecasts will be visualized with their shaded confidence intervals.  
+    
+  c) Use cross validation to confirm which simple forecasting method is best.  
+    - the forecast accuracy reported will be RMSE. 
+    - CV will be performed similarly to the way it was used in a bonus homework question earlier in the semester.  
+    - The chosen forecasting model will be the one that performs best in the CV procedure  
+    
+  d) Perform Box-Jenkins method to fit ARIMA(p,d,q) model  
+    - the procedure outlined in the slides will be used, and after the p, d, q orders have been chosen they will be compared with the ARIMA found using auto.arima.  
+    - the method of comparison will be AIC and RMSE.  
+    
+  e) Validate best model looking at metrics  
+    - AIC and Test RMSE will be used to choose the between the selected ARIMA and the selected simple forecasting method. 
+    - these metrics were chosen instead of cross validation because of manual selection process of the best ARIMA model.  
+    
+  f) Check residuals to further validate best model choice as well as confirm goodness of fit and quality of predictions.
+
+## **2) Analytical model:**  
+
+  a) Confirm correlation between explanatory and response variable  
+    - that is, report the correlation with plot of the relationship between share of youth NEETs and unemployment rate in the US  
+    
+  b) Fit linear simple regression model  
+    - the regression of unemployment ~ share of youth NEET  
+    
+  c) Diagnose residuals (we assume assumptions will be violated).  
+    - check the QQ-norm plot (are the residuals normally distributed), and using the Residual v. Fitted (constant variance and centered at mean 0).  
+    - observe results of Breusch-Godfray test, Residuals v Time, histogram of residuals, and ACF plot to discus whether the residuals are white noise. If the residuals are serially correlated that is a sign that the results cannot be trusted.  
+    
+  d) Fit a dynamic regression on ARIMA errors.  
+    - for this method, we will use auto.arima to find the order of our ARIMA errors after checking whether there is a clear AR or MA signature in the ACF and PACF plots.  
+    
+  e) Check residuals to confirm no assumptions are violated for goodness of fit.  
+    - the residuals plots will help us confirm whether our residuals are serially correlated, if they are not we will be able to trust our model. 
+    
+  f) If residual assumptions aren't violated, perform inference and compare results to those of linear regression.  
+    - more specifically, we will consider the results of the Wald Approximations for our predictor, as well as the confidence intervals reported for both our our regression coefficients.  
+    
 
 
