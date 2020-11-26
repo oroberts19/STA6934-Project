@@ -1,0 +1,153 @@
+---
+title: "Forecasting"
+author: "Justin Tienken-Harder"
+date: "11/25/2020"
+output: html_document
+knit: (function(inputFile, encoding) { 
+          rmarkdown::render(inputFile,
+                        encoding=encoding, 
+                        output_file='index.html')})
+---
+
+<script>
+function onClick(button) { 
+  var image_id = button.name; 
+  var image_node = document.getElementById(image_id);
+  image_node.src = "images/"+ button.value ;
+}
+</script>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+#Packages 
+
+library(dplyr)
+library(ggplot2)
+library(forecast)
+library(zoo)
+library(cowplot)
+```
+
+
+```{r}
+wdi_data <- read.csv('WDI2.csv', na.strings = c("..")) %>% 
+  select(Country=Country.Code, Value=Series.Name, contains("X")) %>% 
+  filter(Country=="USA") %>% 
+  data.frame()
+
+#wdi1 <- wdi_data[c(10, 11, 15, 16, 17, 18),]
+wdi2 <- t(wdi_data)
+
+rownames(wdi2) <- c("Country", "Value",1960:2019)
+colnames(wdi2) <- wdi2[2,]
+
+wdi <- wdi2[-(1:2),] 
+wdi <- wdi %>% as.data.frame() %>%  mutate_each(funs(as.numeric))
+row.names(wdi) <- row.names(wdi2)[3:length(row.names(wdi2))]
+wdi_ts <- ts(wdi, start = 1960)
+#tail(wdi)
+
+```
+
+
+```{r}
+US_GDP <- as.ts(ts(wdi[,"GDP (current US$)"], start = 1960, frequency = 1))
+```
+
+
+1) Forecast US GDP growth   
+
+
+## **1) Forecasting model:**  
+
+  a) Check for constant variance: employ either log transformation or Box-Cox transformation if needed.  
+    - in either case we will back-transform our forecasts so they can be reported in our original scale for interpretation.  
+<div>
+<input id="moving-average-button" type="number" name="variance" data-device=".png" data-prefix="GDP_variance_" onchange="valueCheck(this)" value="9" defaultvalue="9" min="3" max="20" autocomplete="off"> <button name="moving-average-button" onclick="animateVariance(this)">Animate Window Size</button></input>
+<img id="variance" src="images/variance/GDP_variance_9.png"></img>
+</div>
+<script>
+function valueCheck(object){
+  let value = parseInt(object.value);
+  let max = object.max;
+  let min = object.min;
+  if(value > max){
+  object.value = max
+  } else if (value < min){
+  object.value = min
+  }
+  var image = document.getElementById(object.name) ;
+  var prefix = object.getAttribute("data-prefix") ;
+  var device = object.getAttribute("data-device") ;
+  let image_location  = "images/"+object.name+"/"+prefix+object.value+device ;
+  console.log(image_location);
+  image.src = image_location 
+}
+</script>
+<script>
+function animateVariance(object){
+  var mab = document.getElementById(object.name);
+  console.log(mab.value);
+  let min = parseInt(mab.min) ;
+  let max = parseInt(mab.max) ;
+  function increment(num, max){
+    if(num < max){
+    let new_num = num + 1 ;
+    mab.value = new_num.toString() ;
+    mab.dispatchEvent(new Event('change'));
+    setTimeout(increment, 500, new_num, max);
+    } else {}
+  };
+  setTimeout(increment, 600, min, max, min);
+}
+</script>
+
+```{r, eval=F, include=F}
+i <- 20
+
+for(i in 3:20){
+  moving_variance_GDP <- rollapply(US_GDP, width = i, FUN = var, fill = NA)
+  moving_average_GDP <- rollmean(US_GDP, k = i, fill = NA)
+  
+  lower_var <- moving_average_GDP - sqrt(moving_variance_GDP) 
+  upper_var <- moving_average_GDP + sqrt(moving_variance_GDP)
+  
+  
+  vari <- autoplot(US_GDP) + 
+    autolayer(moving_average_GDP, series = "Moving Average", color = "blue", alpha = 0.9) + 
+    geom_ribbon(aes(ymax = upper_var, ymin = lower_var), color = "red", fill = "red", alpha = 0.1) + 
+    ylab("US GDP") + ggtitle(paste0("Moving Average: ", i)) + theme_classic()
+  
+  #variance_plot
+  
+  mav <- autoplot(moving_variance_GDP) + theme_classic() + ggtitle(paste0("US GDP Moving Variance: ",i)) + ylab("Variance")
+  plot_to_save <- plot_grid(mav, vari, ncol = 1)
+  
+  save_name = paste0("GDP_variance_", i,".png")
+  ggsave(save_name, plot = plot_to_save, path = "./images/", device = "png")
+}
+
+```
+
+    
+  b) Compare forecasting models (naive, seasonal naive, drift).  
+    - the three simple forecasting models will be used to forecast 5 years past 2013.  
+    - the forecasts will be visualized with their shaded confidence intervals.  
+    
+  c) Use cross validation to confirm which simple forecasting method is best.  
+    - the forecast accuracy reported will be RMSE. 
+    - CV will be performed similarly to the way it was used in a bonus homework question earlier in the semester.  
+    - The chosen forecasting model will be the one that performs best in the CV procedure  
+    
+  d) Perform Box-Jenkins method to fit ARIMA(p,d,q) model  
+    - the procedure outlined in the slides will be used, and after the p, d, q orders have been chosen they will be compared with the ARIMA found using auto.arima.  
+    - the method of comparison will be AIC and RMSE.  
+    
+  e) Validate best model looking at metrics  
+    - AIC and Test RMSE will be used to choose the between the selected ARIMA and the selected simple forecasting method. 
+    - these metrics were chosen instead of cross validation because of manual selection process of the best ARIMA model.  
+    
+  f) Check residuals to further validate best model choice as well as confirm goodness of fit and quality of predictions.

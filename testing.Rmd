@@ -1,0 +1,14 @@
+---
+title: "Outline"
+author: "Justin Tienken-Harder"
+date: "11/25/2020"
+output: html_document
+---
+
+```{r}
+htmltools::tags$script(src = "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js")
+```
+
+
+<button type="button"> CLICK ME!<button></button> </button>
+
