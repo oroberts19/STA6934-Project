@@ -65,9 +65,12 @@ US_GDP <- as.ts(ts(wdi[,"GDP (current US$)"], start = 1960, frequency = 1))
 
   a) Check for constant variance: employ either log transformation or Box-Cox transformation if needed.  
     - in either case we will back-transform our forecasts so they can be reported in our original scale for interpretation.  
+    
+To determine if our data has non-constant variance, we will draw a one standard deviation band around our data calculated from a moving window. If our data has constant variance, then we should expect this band to be uniform width across time. Further, we'll look at the variance of our data with a moving window, we should expect this plot to have an approximately constant mean across time. We'll also look at how increasing the window size effects both graphs.    
+
 <div>
-<input id="moving-average-button" type="number" name="variance" data-device=".png" data-prefix="GDP_variance_" onchange="valueCheck(this)" value="9" defaultvalue="9" min="3" max="20" autocomplete="off"> <button name="moving-average-button" onclick="animateVariance(this)">Animate Window Size</button></input>
-<img id="variance" src="images/variance/GDP_variance_9.png"></img>
+<input id="moving-average-button" type="number" name="variance" data-device=".svg" data-prefix="GDP_variance_" onchange="valueCheck(this)" value="9" defaultvalue="9" min="3" max="20" autocomplete="off"> <button name="moving-average-button" onclick="animateVariance(this)">Animate Window Size</button></input>
+<img id="variance" src="images/variance/GDP_variance_9.svg"></img>
 </div>
 <script>
 function valueCheck(object){
@@ -106,30 +109,56 @@ function animateVariance(object){
 </script>
 
 ```{r, eval=F, include=F}
-i <- 20
-
-for(i in 3:20){
-  moving_variance_GDP <- rollapply(US_GDP, width = i, FUN = var, fill = NA)
-  moving_average_GDP <- rollmean(US_GDP, k = i, fill = NA)
+# Code to generate SVG graphics for the animations above. Very lightweight compared to .png files.
+mav_plot <- function(time_series, mav_size, titles = c("Window Size: ", "US GDP Moving Variance: "), ylabel = "US GDP"){
+  moving_variance <- rollapply(time_series, width = mav_size, FUN = var, fill = NA)
+  moving_average <- rollmean(time_series, k = mav_size, fill = NA)
   
-  lower_var <- moving_average_GDP - sqrt(moving_variance_GDP) 
-  upper_var <- moving_average_GDP + sqrt(moving_variance_GDP)
+  lower_var <- moving_average - sqrt(moving_variance) 
+  upper_var <- moving_average + sqrt(moving_variance)
   
-  
-  vari <- autoplot(US_GDP) + 
-    autolayer(moving_average_GDP, series = "Moving Average", color = "blue", alpha = 0.9) + 
+  #Ribbon plot
+  vari <- autoplot(time_series) + 
+    autolayer(moving_average, series = "Moving Average", color = "blue", alpha = 0.9) + 
     geom_ribbon(aes(ymax = upper_var, ymin = lower_var), color = "red", fill = "red", alpha = 0.1) + 
-    ylab("US GDP") + ggtitle(paste0("Moving Average: ", i)) + theme_classic()
+    ylab(ylabel) + ggtitle(paste0(titles[1], mav_size)) + theme_classic()
   
   #variance_plot
-  
-  mav <- autoplot(moving_variance_GDP) + theme_classic() + ggtitle(paste0("US GDP Moving Variance: ",i)) + ylab("Variance")
-  plot_to_save <- plot_grid(mav, vari, ncol = 1)
-  
-  save_name = paste0("GDP_variance_", i,".png")
-  ggsave(save_name, plot = plot_to_save, path = "./images/", device = "png")
+  mav <- autoplot(moving_variance) + theme_classic() + ggtitle(paste0(titles[2],mav_size)) + ylab("Variance")
+  output <- list("Ribbon" = vari, "Variance" = mav)
+  return(output)
 }
 
+for(i in 3:20){
+  hmm <- mav_plot(US_GDP, i)
+  plot_to_save <- plot_grid(hmm[[1]], hmm[[2]], ncol = 1)
+  
+  save_name = paste0("GDP_variance_", i,".svg")
+  ggsave(save_name, plot = plot_to_save, path = "./images/variance/", device = "svg")
+}
+
+```
+
+It should be clear that we need to transform our data because the variance is no (approximately) constant throughout time. Here's a comparison of the automatically selected BoxCox transformation (lambda is automatically selected) versus a log transformation: 
+
+<div>
+<input id="transformed-average-button" type="number" name="transformed" data-device=".svg" data-prefix="transformed_US_GDP_" onchange="valueCheck(this)" value="9" defaultvalue="9" min="3" max="20" autocomplete="off"> <button name="transformed-average-button" onclick="animateVariance(this)">Animate Window Size</button></input>
+<img id="transformed" src="images/transformed/transformed_US_GDP_9.svg"></img>
+</div>
+
+```{r, eval=F, include=F}
+lamb <- BoxCox.lambda(US_GDP)
+transformed <- BoxCox(US_GDP, lambda = lamb)
+
+for (i in 3:20){
+  boxcox_version <- mav_plot(transformed, i, titles = c(paste0("λ=", round(lamb, digits = 4), " Window Size: "), "Box Cox US GDP Moving Variance: "), ylabel = "BoxCox(US GDP)")
+  log_version <- mav_plot(log(US_GDP), i, titles = c("λ=0 Window Size: ", "log(US GDP) Moving Variance: "), ylabel = "log(US GDP)")
+  plot_to_save <- plot_grid(boxcox_version[[1]], boxcox_version[[2]], log_version[[1]], log_version[[2]], ncol = 2)
+  save_name <- paste0("transformed_US_GDP_",i,".svg")
+  ggsave(save_name, plot = plot_to_save, path = "./images/transformed/", device = "svg")
+}
+plot_to_save <- plot_grid(mav, vari, mav2, vari2, ncol = 2)
+plot_to_save
 ```
 
     
