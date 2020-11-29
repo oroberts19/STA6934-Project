@@ -1,8 +1,11 @@
 ---
 title: "Forecasting"
-author: "Justin Tienken-Harder"
+author: "Ashley Brockway, Olivia Roberts, and Justin Tienken-Harder"
 date: "11/25/2020"
-output: html_document
+output: 
+  html_document:
+    theme: cosmo
+    css: "style.css"
 knit: (function(inputFile, encoding) { 
           rmarkdown::render(inputFile,
                         encoding=encoding, 
@@ -27,6 +30,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(ggplot2)
 library(forecast)
+library(fpp2)
+library(fma)
 library(zoo)
 library(cowplot)
 ```
@@ -63,12 +68,24 @@ US_GDP <- as.ts(ts(wdi[,"GDP (current US$)"], start = 1960, frequency = 1))
 
 ## **1) Forecasting model:**  
 
-  a) Check for constant variance: employ either log transformation or Box-Cox transformation if needed.  
-    - in either case we will back-transform our forecasts so they can be reported in our original scale for interpretation.  
-<div>
-<input id="moving-average-button" type="number" name="variance" data-device=".png" data-prefix="GDP_variance_" onchange="valueCheck(this)" value="9" defaultvalue="9" min="3" max="20" autocomplete="off"> <button name="moving-average-button" onclick="animateVariance(this)">Animate Window Size</button></input>
-<img id="variance" src="images/variance/GDP_variance_9.png"></img>
+
+We first must determine if our data has non-constant variance (through time). We will draw a one standard deviation band around our data calculated from a moving window. If our data has constant variance, then we should expect this band to be uniform width across time. Further, we'll look at a plot of the variance of our data over time, we should expect this plot to have an approximately constant mean across time, and for the variance of this plot to be quite small. 
+
+You can change the window size manually or animate the graph to see how increasing the window size effects the variance of US GDP.
+
+```{=html}
+<div class="centered">
+  <div></div>
+  <div>
+    <input id="moving-average-button" type="number" name="variance" data-device=".svg" data-prefix="GDP_variance_" onchange="valueCheck(this)" value="9" defaultvalue="9" min="3" max="20" autocomplete="off"></input>
+  </div>
+  <div>
+    <button class="spaced small red button" name="moving-average-button" onclick="animateVariance(this)">Animate Window Size</button>
+  </div>
+  <div></div>
 </div>
+<img id="variance" src="images/variance/GDP_variance_9.svg" style="height:80% width:80%"></img>
+
 <script>
 function valueCheck(object){
   let value = parseInt(object.value);
@@ -104,31 +121,73 @@ function animateVariance(object){
   setTimeout(increment, 600, min, max, min);
 }
 </script>
+```
+
 
 ```{r, eval=F, include=F}
-i <- 20
-
-for(i in 3:20){
-  moving_variance_GDP <- rollapply(US_GDP, width = i, FUN = var, fill = NA)
-  moving_average_GDP <- rollmean(US_GDP, k = i, fill = NA)
+# Code to generate SVG graphics for the animations above. Very lightweight compared to .png files.
+mav_plot <- function(time_series, mav_size, titles = c("Window Size: ", "US GDP Moving Variance: "), ylabel = "US GDP"){
+  moving_variance <- rollapply(time_series, width = mav_size, FUN = var, fill = NA)
+  moving_average <- rollmean(time_series, k = mav_size, fill = NA)
   
-  lower_var <- moving_average_GDP - sqrt(moving_variance_GDP) 
-  upper_var <- moving_average_GDP + sqrt(moving_variance_GDP)
+  lower_var <- moving_average - sqrt(moving_variance) 
+  upper_var <- moving_average + sqrt(moving_variance)
   
-  
-  vari <- autoplot(US_GDP) + 
-    autolayer(moving_average_GDP, series = "Moving Average", color = "blue", alpha = 0.9) + 
+  #Ribbon plot
+  vari <- autoplot(time_series) + 
+    autolayer(moving_average, series = "Moving Average", color = "blue", alpha = 0.9) + 
     geom_ribbon(aes(ymax = upper_var, ymin = lower_var), color = "red", fill = "red", alpha = 0.1) + 
-    ylab("US GDP") + ggtitle(paste0("Moving Average: ", i)) + theme_classic()
+    ylab(ylabel) + ggtitle(paste0(titles[1], mav_size)) + theme_classic()
   
   #variance_plot
-  
-  mav <- autoplot(moving_variance_GDP) + theme_classic() + ggtitle(paste0("US GDP Moving Variance: ",i)) + ylab("Variance")
-  plot_to_save <- plot_grid(mav, vari, ncol = 1)
-  
-  save_name = paste0("GDP_variance_", i,".png")
-  ggsave(save_name, plot = plot_to_save, path = "./images/", device = "png")
+  mav <- autoplot(moving_variance) + theme_classic() + ggtitle(paste0(titles[2],mav_size)) + ylab("Variance")
+  output <- list("Ribbon" = vari, "Variance" = mav)
+  return(output)
 }
+
+for(i in 3:20){
+  hmm <- mav_plot(US_GDP, i)
+  plot_to_save <- plot_grid(hmm[[1]], hmm[[2]], ncol = 1)
+  
+  save_name = paste0("GDP_variance_", i,".svg")
+  ggsave(save_name, plot = plot_to_save, path = "./images/variance/", device = "svg")
+}
+
+```
+
+It should be clear that we need to transform our data because the variance is not constant throughout time. Here's a comparison of the automatically selected BoxCox transformation (lambda is automatically selected) versus a log transformation: 
+
+```{=html}
+<div class="centered">
+  <div></div>
+  <div>
+  <input id="transformed-average-button" type="number" name="transformed" data-device=".svg" data-prefix="transformed_US_GDP_" onchange="valueCheck(this)" value="9" defaultvalue="9" min="3" max="20" autocomplete="off"></input>
+  </div>
+  <div></div>
+  <div>
+    <button class="small red button" name="transformed-average-button" onclick="animateVariance(this)">Animate Window Size</button>
+  </div>
+  <div></div>
+</div>
+<img id="transformed" src="images/transformed/transformed_US_GDP_9.svg" style="height:80% width:80%"></img>
+
+```
+
+Notice how the variance through time is very close to 0.9 across time. This transformation has fixed the variance of the data.
+
+```{r, eval=F, include=F}
+lamb <- BoxCox.lambda(US_GDP)
+transformed <- BoxCox(US_GDP, lambda = lamb)
+
+for (i in 3:20){
+  boxcox_version <- mav_plot(transformed, i, titles = c(paste0("λ=", round(lamb, digits = 4), " Window Size: "), "Box Cox US GDP Moving Variance: "), ylabel = "BoxCox(US GDP)")
+  log_version <- mav_plot(log(US_GDP), i, titles = c("λ=0 Window Size: ", "log(US GDP) Moving Variance: "), ylabel = "log(US GDP)")
+  plot_to_save <- plot_grid(boxcox_version[[1]], boxcox_version[[2]], log_version[[1]], log_version[[2]], ncol = 2)
+  save_name <- paste0("transformed_US_GDP_",i,".svg")
+  ggsave(save_name, plot = plot_to_save, path = "./images/transformed/", device = "svg")
+}
+plot_to_save <- plot_grid(mav, vari, mav2, vari2, ncol = 2)
+plot_to_save
 
 ```
 
@@ -136,16 +195,190 @@ for(i in 3:20){
   b) Compare forecasting models (naive, seasonal naive, drift).  
     - the three simple forecasting models will be used to forecast 5 years past 2013.  
     - the forecasts will be visualized with their shaded confidence intervals.  
+ 
+# Forecasting {.tabset .tabset-fade .tabset-pills}
+ 
+ Here we'll be looking at three different naive forecasting methods:
+ 
+```{r, include = FALSE}
+less <- window(US_GDP, end = c(2013))
+#autoplot(less)
+```
+ 
+ 
+## Naive
+ 
+ As you can see, due to the log transform of our data, the 95% and 80% confidence intervals have been skewed towards larger predictions (i.e., the larger the time, the larger variance in positive predictions). However, it's important to check the residuals of our forecast!
+ 
+```{=html}
+<!-- <div class="button-group"> -->
+<div class="centered">
+ <div>
+  <button class="small red button" name="naive_forecast" onclick="updateForecast(this)" value="original.svg">Original Scale Forecast</button>
+ </div>
+ <div>
+   <button class="small red button" name="naive_forecast" onclick="updateForecast(this)" value="clipped.svg">Clip Y-axis Forecast</button>
+ </div>
+ <div>
+  <button class="small red button" name="naive_forecast" onclick="updateForecast(this)" value="log.svg">Log Scale Forecast</button>
+ </div>
+</div>
+<!-- </div> -->
+ <img class="custom" id="naive_forecast" src="./images/naive_forecast/original.svg"></img>
+
+ <script>
+ // Forcibly updates the image source to what it is supposed to be. Knitting replaces it with some nonsense. 
+ (function fixsrc(){
+ document.getElementById("naive_forecast").src = "./images/naive_forecast/original.svg";
+ })()
+ </script>
+ <script>
+ function updateForecast(button){
+ let img = document.getElementById(button.name);
+ let str = img.src;
+ var lastSlash = str.lastIndexOf("/");
+ var prefix = str.substring(0, lastSlash+1);
+ console.log(prefix+button.value);
+ img.src = prefix+button.value ;
+ }
+ </script>
+```
+
+ 
+```{r, eval = F, include = F}
+
+#Generates all the plots for Naive Forecasting.
+
+nfit <- naive(less, lambda = 0, h = 5)
+plotted <- autoplot(less) + autolayer(nfit, alpha = 0.8, series = "Naive", col = "blue") + 
+  ggtitle("US GDP: Naive Forecast (clipped scale)") + ylab("US GDP") + theme_bw() + coord_cartesian(ylim=c(0,100))
+ggsave("clipped.svg", plot = plotted, path = "./images/naive_forecast/", device = "svg")
+
+
+plotted <- autoplot(less) + autolayer(nfit, alpha = 0.8, series = "Naive", col = "blue") + 
+  ggtitle("US GDP: Naive Forecast") + ylab("US GDP") + theme_bw()
+ggsave("original.svg", plot = plotted, path = "./images/naive_forecast/", device = "svg")
+
+
+tnfit <- naive(transformed, h = 5)
+plotted <- autoplot(transformed) + autolayer(tnfit, alpha = 0.8, series = "Naive", col = "blue") +
+  ggtitle("Log(US GDP): Naive Forecast") + ylab("Log(US GDP)") + theme_bw()
+ggsave("log.svg", plot = plotted, path = "./images/naive_forecast/", device = "svg")
+
+```
+ 
+ 
+However, it's important to check the residuals of our forecast! As you can see below, we have approximately white-noise auto-correlations. Further, our residuals have constantish variance and mean. Notably, the residuals are not normally distributed.
+ 
+```{r, echo = FALSE}
+nfit <- naive(less, lambda = 0, h = 5)
+checkresiduals(nfit)
+```
+ 
+The Ljung-Box test, with a p-value of 0.515, helps us fail to reject instances of white noise residuals.
+
+
+ 
+## Drift
+
+
+```{=html}
+<div class="centered">
+  <div>
+    <button class="small red button" name="drift_forecast" onclick="updateForecast(this)" value="original.svg">Original Scale Forecast</button>
+  </div>
+  <div>
+    <button class="small red button" name="drift_forecast" onclick="updateForecast(this)" value="clipped.svg">Clip Y-axis Forecast</button>
+  </div>
+  <div>
+    <button class="small red button" name="drift_forecast" onclick="updateForecast(this)" value="log.svg">Log Scale Forecast</button>
+  </div>
+</div>
+ 
+ 
+ <img class="custom" id="drift_forecast" src="./images/drift_forecast/original.svg"></img>
+ <script>
+ // Forcibly updates the image source to what it is supposed to be. Knitting replaces it with some nonsense. 
+ (function fixsrc(){
+ document.getElementById("drift_forecast").src = "./images/drift_forecast/original.svg";
+ })()
+ </script>
+```
+ 
+```{r, include = F}
+drift <- rwf(less, drift = TRUE , lambda = 0, h = 5)
+```
+ 
+
+```{r, eval = F, include = F}
+
+#Generates all the plots for Naive Forecasting.
+
+drift <- rwf(less, drift = TRUE , lambda = 0, h = 5)
+plotted <- autoplot(less) + autolayer(drift, alpha = 0.8, series = "Drift", col = "blue") + 
+  #autolayer(drift$fitted, alpha = 0.8, series = "Drift Line")+
+  ggtitle("US GDP: Drift Forecast (clipped scale)") + ylab("US GDP") + theme_bw() + coord_cartesian(ylim=c(0,100))
+ggsave("clipped.svg", plot = plotted, path = "./images/drift_forecast/", device = "svg")
+
+
+plotted <- autoplot(less) + autolayer(drift, alpha = 0.8, series = "Drift", col = "blue") + 
+  ggtitle("US GDP: Drift Forecast") + ylab("US GDP") + theme_bw()
+ggsave("original.svg", plot = plotted, path = "./images/drift_forecast/", device = "svg")
+
+
+tnfit <- rwf(transformed,drift = TRUE, h = 5)
+plotted <- autoplot(transformed) + autolayer(tnfit, alpha = 0.8, series = "Drift", col = "blue") +
+  #autolayer(tnfit$fitted, alpha = 0.8, series = "Drift Line") +
+  ggtitle("Log(US GDP): Drift Forecast") + ylab("Log(US GDP)") + theme_bw()
+ggsave("log.svg", plot = plotted, path = "./images/drift_forecast/", device = "svg")
+
+```
+ 
+ 
+It's important to check to see if our drift parameter is statistically significant. In this case, the drift parameter is less than one standard error from zero, so it's not statistically significant. Further, with such a small drift of $\mu = -0.0106$, this model doesn't practically differ significantly from naive forecast.
+
+```{r}
+summary(rwf(less, lambda = 0, drift = T, h=5))
+```
+
+ 
+## Seasonal Naive 
+
+The data does not appear to have any kind of seasonality. Maybe if the dataset had a frequency of 4 (i.e., quarterly data), we might be able to identify some seasonal components; however, we can still check to see if there is any indication of some non-standard seasonal components (e.g., ever decade).
+
+```{r, echo = F}
+gglagplot(log(less), lags = 12) + 
+  ggtitle("Lag Plot of US GDP")+
+  theme_bw()
+```
+
     
-  c) Use cross validation to confirm which simple forecasting method is best.  
-    - the forecast accuracy reported will be RMSE. 
-    - CV will be performed similarly to the way it was used in a bonus homework question earlier in the semester.  
-    - The chosen forecasting model will be the one that performs best in the CV procedure  
     
   d) Perform Box-Jenkins method to fit ARIMA(p,d,q) model  
     - the procedure outlined in the slides will be used, and after the p, d, q orders have been chosen they will be compared with the ARIMA found using auto.arima.  
     - the method of comparison will be AIC and RMSE.  
-    
+
+## ARIMA
+
+d) Perform Box-Jenkins method to fit ARIMA(p,d,q) model  
+    - the procedure outlined in the slides will be used, and after the p, d, q orders have been chosen they will be compared with the ARIMA found using auto.arima.  
+    - the method of comparison will be AIC and RMSE. 
+
+```{r}
+model <- auto.arima(less, lambda=0)
+autoplot(less) + autolayer(forecast(model))
+wha <- checkresiduals(model)
+```
+
+  c) Use cross validation to confirm which simple forecasting method is best.  
+    - the forecast accuracy reported will be RMSE. 
+    - CV will be performed similarly to the way it was used in a bonus homework question earlier in the semester.  
+    - The chosen forecasting model will be the one that performs best in the CV procedure  
+
+```{r}
+tsdisplay(transformed)
+```
+
   e) Validate best model looking at metrics  
     - AIC and Test RMSE will be used to choose the between the selected ARIMA and the selected simple forecasting method. 
     - these metrics were chosen instead of cross validation because of manual selection process of the best ARIMA model.  
