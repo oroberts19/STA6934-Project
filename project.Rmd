@@ -27,6 +27,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(ggplot2)
 library(forecast)
+library(fpp2)
+library(fma)
 library(zoo)
 library(cowplot)
 ```
@@ -142,8 +144,10 @@ for(i in 3:20){
 It should be clear that we need to transform our data because the variance is no (approximately) constant throughout time. Here's a comparison of the automatically selected BoxCox transformation (lambda is automatically selected) versus a log transformation: 
 
 <div>
-<input id="transformed-average-button" type="number" name="transformed" data-device=".svg" data-prefix="transformed_US_GDP_" onchange="valueCheck(this)" value="9" defaultvalue="9" min="3" max="20" autocomplete="off"> <button name="transformed-average-button" onclick="animateVariance(this)">Animate Window Size</button></input>
-<img id="transformed" src="images/transformed/transformed_US_GDP_9.svg"></img>
+<input id="transformed-average-button" type="number" name="transformed" data-device=".svg" data-prefix="transformed_US_GDP_" onchange="valueCheck(this)" value="9" defaultvalue="9" min="3" max="20" autocomplete="off"> 
+<button name="transformed-average-button" onclick="animateVariance(this)">Animate Window Size</button>
+</input>
+<img id="transformed" src="images/transformed/transformed_US_GDP_9.svg" ></img>
 </div>
 
 ```{r, eval=F, include=F}
@@ -159,12 +163,121 @@ for (i in 3:20){
 }
 plot_to_save <- plot_grid(mav, vari, mav2, vari2, ncol = 2)
 plot_to_save
+
 ```
 
     
   b) Compare forecasting models (naive, seasonal naive, drift).  
     - the three simple forecasting models will be used to forecast 5 years past 2013.  
     - the forecasts will be visualized with their shaded confidence intervals.  
+ 
+# Forecasting {.tabset}
+ 
+ Here we'll be looking at three different naive forecasting methods:
+ 
+```{r, include = FALSE}
+less <- window(US_GDP, end = c(2013))
+#autoplot(less)
+```
+ 
+ 
+## Naive
+ 
+ As you can see, due to the log transform of our data, the 95% and 80% confidence intervals have been skewed towards larger predictions (i.e., the larger the time, the larger variance in positive predictions). However, it's important to check the residuals of our forecast!
+ <div display="block">
+ <button name="naive_forecast" onclick="updateForecast(this)" value="original.svg">Original Scale Forecast</button>
+ <button name="naive_forecast" onclick="updateForecast(this)" value="clipped.svg">Clip Y-axis Forecast</button>
+ <button name="naive_forecast" onclick="updateForecast(this)" value="log.svg">Log Scale Forecast</button>
+ </div>
+ <img id="naive_forecast" src="./images/naive_forecast/original.svg"style="width: 50%; height: 50%"></img>
+
+ <script>
+ // Forcibly updates the image source to what it is supposed to be. Knitting replaces it with some nonsense. 
+ (function fixsrc(){
+ document.getElementById("naive_forecast").src = "./images/naive_forecast/original.svg";
+ })()
+ </script>
+ <script>
+ function updateForecast(button){
+ let img = document.getElementById(button.name);
+ let str = img.src;
+ var lastSlash = str.lastIndexOf("/");
+ var prefix = str.substring(0, lastSlash+1);
+ console.log(prefix+button.value);
+ img.src = prefix+button.value ;
+ }
+ </script>
+ 
+ 
+```{r, eval = F, include = F}
+
+#Generates all the plots for Naive Forecasting.
+
+nfit <- naive(less, lambda = 0, h = 5)
+plotted <- autoplot(less) + autolayer(nfit, alpha = 0.8, series = "Naive", col = "blue") + 
+  ggtitle("US GDP: Naive Forecast (clipped scale)") + ylab("US GDP") + theme_bw() + coord_cartesian(ylim=c(0,100))
+ggsave("clipped.svg", plot = plotted, path = "./images/naive_forecast/", device = "svg")
+
+
+plotted <- autoplot(less) + autolayer(nfit, alpha = 0.8, series = "Naive", col = "blue") + 
+  ggtitle("US GDP: Naive Forecast") + ylab("US GDP") + theme_bw()
+ggsave("original.svg", plot = plotted, path = "./images/naive_forecast/", device = "svg")
+
+
+tnfit <- naive(transformed, h = 5)
+plotted <- autoplot(transformed) + autolayer(tnfit, alpha = 0.8, series = "Naive", col = "blue") +
+  ggtitle("Log(US GDP): Naive Forecast") + ylab("Log(US GDP)") + theme_bw()
+ggsave("log.svg", plot = plotted, path = "./images/naive_forecast/", device = "svg")
+
+```
+ 
+```{r}
+nfit <- naive(less, lambda = 0, h = 5)
+checkresiduals(nfit)
+```
+ 
+## Drift
+<div style="display:block">
+ <button name="drift_forecast" onclick="updateForecast(this)" value="original.svg">Original Scale Forecast</button>
+ <button name="drift_forecast" onclick="updateForecast(this)" value="clipped.svg">Clip Y-axis Forecast</button>
+ <button name="drift_forecast" onclick="updateForecast(this)" value="log.svg">Log Scale Forecast</button>
+ <img id="drift_forecast" src="./images/drift_forecast/original.svg" style="width: 50%; height: 50%"></img>
+</div>
+ <script>
+ // Forcibly updates the image source to what it is supposed to be. Knitting replaces it with some nonsense. 
+ (function fixsrc(){
+ document.getElementById("drift_forecast").src = "./images/drift_forecast/original.svg";
+ })()
+ </script>
+ 
+ 
+```{r, eval = F, include = F}
+
+#Generates all the plots for Naive Forecasting.
+
+drift <- rwf(less, drift = TRUE , lambda = 0, h = 5)
+plotted <- autoplot(less) + autolayer(drift, alpha = 0.8, series = "Drift", col = "blue") + 
+  #autolayer(drift$fitted, alpha = 0.8, series = "Drift Line")+
+  ggtitle("US GDP: Drift Forecast (clipped scale)") + ylab("US GDP") + theme_bw() + coord_cartesian(ylim=c(0,100))
+ggsave("clipped.svg", plot = plotted, path = "./images/drift_forecast/", device = "svg")
+
+
+plotted <- autoplot(less) + autolayer(drift, alpha = 0.8, series = "Drift", col = "blue") + 
+  ggtitle("US GDP: Drift Forecast") + ylab("US GDP") + theme_bw()
+ggsave("original.svg", plot = plotted, path = "./images/drift_forecast/", device = "svg")
+
+
+tnfit <- rwf(transformed,drift = TRUE, h = 5)
+plotted <- autoplot(transformed) + autolayer(tnfit, alpha = 0.8, series = "Drift", col = "blue") +
+  #autolayer(tnfit$fitted, alpha = 0.8, series = "Drift Line") +
+  ggtitle("Log(US GDP): Drift Forecast") + ylab("Log(US GDP)") + theme_bw()
+ggsave("log.svg", plot = plotted, path = "./images/drift_forecast/", device = "svg")
+
+```
+ 
+## Seasonal Naive 
+
+ 
     
   c) Use cross validation to confirm which simple forecasting method is best.  
     - the forecast accuracy reported will be RMSE. 
