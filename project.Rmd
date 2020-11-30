@@ -34,6 +34,8 @@ library(fpp2)
 library(fma)
 library(zoo)
 library(cowplot)
+#install.packages("PerformanceAnalytics")
+library(PerformanceAnalytics)
 ```
 
 
@@ -50,10 +52,11 @@ rownames(wdi2) <- c("Country", "Value",1960:2019)
 colnames(wdi2) <- wdi2[2,]
 
 wdi <- wdi2[-(1:2),] 
-wdi <- wdi %>% as.data.frame() %>%  mutate_each(funs(as.numeric))
+#wdi <- wdi %>% as.data.frame() %>%  mutate_each(funs(as.numeric))
 row.names(wdi) <- row.names(wdi2)[3:length(row.names(wdi2))]
 wdi_ts <- ts(wdi, start = 1960)
-#tail(wdi)
+
+
 
 ```
 
@@ -352,15 +355,9 @@ gglagplot(log(less), lags = 12) +
   theme_bw()
 ```
 
-    
-    
-  d) Perform Box-Jenkins method to fit ARIMA(p,d,q) model  
-    - the procedure outlined in the slides will be used, and after the p, d, q orders have been chosen they will be compared with the ARIMA found using auto.arima.  
-    - the method of comparison will be AIC and RMSE.  
-
 ## ARIMA
 
-d) Perform Box-Jenkins method to fit ARIMA(p,d,q) model  
+  c) Perform Box-Jenkins method to fit ARIMA(p,d,q) model  
     - the procedure outlined in the slides will be used, and after the p, d, q orders have been chosen they will be compared with the ARIMA found using auto.arima.  
     - the method of comparison will be AIC and RMSE. 
 
@@ -370,7 +367,7 @@ autoplot(less) + autolayer(forecast(model))
 wha <- checkresiduals(model)
 ```
 
-  c) Use cross validation to confirm which simple forecasting method is best.  
+  d) Use cross validation to confirm which simple forecasting method is best.  
     - the forecast accuracy reported will be RMSE. 
     - CV will be performed similarly to the way it was used in a bonus homework question earlier in the semester.  
     - The chosen forecasting model will be the one that performs best in the CV procedure  
@@ -383,4 +380,51 @@ tsdisplay(transformed)
     - AIC and Test RMSE will be used to choose the between the selected ARIMA and the selected simple forecasting method. 
     - these metrics were chosen instead of cross validation because of manual selection process of the best ARIMA model.  
     
-  f) Check residuals to further validate best model choice as well as confirm goodness of fit and quality of predictions.
+  f) Check residuals to further validate best model choice as well as confirm goodness of fit and quality of predictions.  
+  
+```{r}
+regression_data<- wdi[35:nrow(wdi),c(3,15)]
+colnames(regression_data)<- c("share_youth_NEET", "unemployment_total")
+reg_data <- transform(regression_data, share_youth_NEET = as.numeric(share_youth_NEET), unemployment_total = as.numeric(unemployment_total))
+```
+
+a) Confirm correlation between explanatory and response variable  
+    - that is, report the correlation with plot of the relationship between share of youth NEETs and unemployment rate in the US   \
+    
+The correlation between the share of youth that are not employed, in education or job training and the overall unemployment rate across time is 0.90. The strength of this correlation, as well as the clear linear trend depicted in the scatterplot provided, motivates us to further study the plausibility of a significant relationship between the two variables.  
+
+
+```{r}
+chart.Correlation(reg_data, histogram = TRUE, pch=19)
+```
+
+  
+    
+  b) Fit linear simple regression model  
+    - the regression of unemployment ~ share of youth NEET  
+    
+```{r}
+lm_fit <- lm(unemployment_total ~ share_youth_NEET, data = reg_data) 
+summary(lm_fit)
+```
+
+```{r}
+plot(reg_data$share_youth_NEET, reg_data$unemployment_total) 
+abline(lm_fit)
+```
+
+  c) Diagnose residuals (we assume assumptions will be violated).  
+    - check the QQ-norm plot (are the residuals normally distributed), and using the Residual v. Fitted (constant variance and centered at mean 0).  
+    - observe results of Breusch-Godfray test, Residuals v Time, histogram of residuals, and ACF plot to discus whether the residuals are white noise. If the residuals are serially correlated that is a sign that the results cannot be trusted.  
+    
+The QQ-norm plot reveals that the residuals are fairly normally distributed, this is verified by the histogram of residuals. While the distribution is not perfectly normal, given that there are only 26 observations of each variable, it can be considered normal enough. The Breusch-Godfrey test results in a p-value of 0.001 which is small enough to reject the null hypothesis and concluse that the residuals are not white noise (i.e. that there is evidence of autocorrelation and serial dependence). The residuals versus time plot also reveals that the residuals are not centered around a constant mean, even though the variance is consistent across time.  
+
+```{r}
+plot(lm_fit, which = c(1:2))
+```
+
+```{r}
+checkresiduals(lm_fit)
+```
+    
+    
