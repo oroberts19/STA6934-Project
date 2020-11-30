@@ -12,13 +12,6 @@ knit: (function(inputFile, encoding) {
                         output_file='index.html')})
 ---
 
-<script>
-function onClick(button) { 
-  var image_id = button.name; 
-  var image_node = document.getElementById(image_id);
-  image_node.src = "images/"+ button.value ;
-}
-</script>
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -37,7 +30,7 @@ library(cowplot)
 ```
 
 
-```{r}
+```{r, echo = F, warning=F}
 wdi_data <- read.csv('WDI2.csv', na.strings = c("..")) %>% 
   select(Country=Country.Code, Value=Series.Name, contains("X")) %>% 
   filter(Country=="USA") %>% 
@@ -58,15 +51,14 @@ wdi_ts <- ts(wdi, start = 1960)
 ```
 
 
-```{r}
+```{r, echo = F}
 US_GDP <- as.ts(ts(wdi[,"GDP (current US$)"], start = 1960, frequency = 1))
 ```
 
+# Forecast US GDP growth   
 
-1) Forecast US GDP growth   
 
-
-## **1) Forecasting model:**  
+## **1) Variance Stabelization:**  
 
 
 We first must determine if our data has non-constant variance (through time). We will draw a one standard deviation band around our data calculated from a moving window. If our data has constant variance, then we should expect this band to be uniform width across time. Further, we'll look at a plot of the variance of our data over time, we should expect this plot to have an approximately constant mean across time, and for the variance of this plot to be quite small. 
@@ -196,17 +188,18 @@ plot_to_save
     - the three simple forecasting models will be used to forecast 5 years past 2013.  
     - the forecasts will be visualized with their shaded confidence intervals.  
  
-# Forecasting {.tabset .tabset-fade .tabset-pills}
+## Forecasting {.tabset .tabset-fade .tabset-pills}
  
- Here we'll be looking at three different naive forecasting methods:
+Here we'll be looking at four different forecasting methods:
  
 ```{r, include = FALSE}
 less <- window(US_GDP, end = c(2013))
+test <- window(US_GDP, start = c(2014))
 #autoplot(less)
 ```
  
  
-## Naive
+### Naive
  
  As you can see, due to the log transform of our data, the 95% and 80% confidence intervals have been skewed towards larger predictions (i.e., the larger the time, the larger variance in positive predictions). However, it's important to check the residuals of our forecast!
  
@@ -249,7 +242,7 @@ less <- window(US_GDP, end = c(2013))
 
 #Generates all the plots for Naive Forecasting.
 
-nfit <- naive(less, lambda = 0, h = 5)
+nfit <- naive(less, lambda = 0, h = 6)
 plotted <- autoplot(less) + autolayer(nfit, alpha = 0.8, series = "Naive", col = "blue") + 
   ggtitle("US GDP: Naive Forecast (clipped scale)") + ylab("US GDP") + theme_bw() + coord_cartesian(ylim=c(0,100))
 ggsave("clipped.svg", plot = plotted, path = "./images/naive_forecast/", device = "svg")
@@ -260,7 +253,7 @@ plotted <- autoplot(less) + autolayer(nfit, alpha = 0.8, series = "Naive", col =
 ggsave("original.svg", plot = plotted, path = "./images/naive_forecast/", device = "svg")
 
 
-tnfit <- naive(transformed, h = 5)
+tnfit <- naive(transformed, h = 6)
 plotted <- autoplot(transformed) + autolayer(tnfit, alpha = 0.8, series = "Naive", col = "blue") +
   ggtitle("Log(US GDP): Naive Forecast") + ylab("Log(US GDP)") + theme_bw()
 ggsave("log.svg", plot = plotted, path = "./images/naive_forecast/", device = "svg")
@@ -271,7 +264,7 @@ ggsave("log.svg", plot = plotted, path = "./images/naive_forecast/", device = "s
 However, it's important to check the residuals of our forecast! As you can see below, we have approximately white-noise auto-correlations. Further, our residuals have constantish variance and mean. Notably, the residuals are not normally distributed.
  
 ```{r, echo = FALSE}
-nfit <- naive(less, lambda = 0, h = 5)
+nfit <- naive(less, lambda = 0, h = 6)
 checkresiduals(nfit)
 ```
  
@@ -279,7 +272,7 @@ The Ljung-Box test, with a p-value of 0.515, helps us fail to reject instances o
 
 
  
-## Drift
+### Drift
 
 
 ```{=html}
@@ -306,7 +299,7 @@ The Ljung-Box test, with a p-value of 0.515, helps us fail to reject instances o
 ```
  
 ```{r, include = F}
-drift <- rwf(less, drift = TRUE , lambda = 0, h = 5)
+drift <- rwf(less, drift = TRUE , lambda = 0, h = 6)
 ```
  
 
@@ -314,7 +307,7 @@ drift <- rwf(less, drift = TRUE , lambda = 0, h = 5)
 
 #Generates all the plots for Naive Forecasting.
 
-drift <- rwf(less, drift = TRUE , lambda = 0, h = 5)
+drift <- rwf(less, drift = TRUE , lambda = 0, h = 6)
 plotted <- autoplot(less) + autolayer(drift, alpha = 0.8, series = "Drift", col = "blue") + 
   #autolayer(drift$fitted, alpha = 0.8, series = "Drift Line")+
   ggtitle("US GDP: Drift Forecast (clipped scale)") + ylab("US GDP") + theme_bw() + coord_cartesian(ylim=c(0,100))
@@ -326,7 +319,7 @@ plotted <- autoplot(less) + autolayer(drift, alpha = 0.8, series = "Drift", col 
 ggsave("original.svg", plot = plotted, path = "./images/drift_forecast/", device = "svg")
 
 
-tnfit <- rwf(transformed,drift = TRUE, h = 5)
+tnfit <- rwf(transformed,drift = TRUE, h = 6)
 plotted <- autoplot(transformed) + autolayer(tnfit, alpha = 0.8, series = "Drift", col = "blue") +
   #autolayer(tnfit$fitted, alpha = 0.8, series = "Drift Line") +
   ggtitle("Log(US GDP): Drift Forecast") + ylab("Log(US GDP)") + theme_bw()
@@ -342,7 +335,7 @@ summary(rwf(less, lambda = 0, drift = T, h=5))
 ```
 
  
-## Seasonal Naive 
+### Seasonal Naive 
 
 The data does not appear to have any kind of seasonality. Maybe if the dataset had a frequency of 4 (i.e., quarterly data), we might be able to identify some seasonal components; however, we can still check to see if there is any indication of some non-standard seasonal components (e.g., ever decade).
 
@@ -352,23 +345,267 @@ gglagplot(log(less), lags = 12) +
   theme_bw()
 ```
 
+The lag plot indicates that there does not appear to be any seasonal components
     
     
-  d) Perform Box-Jenkins method to fit ARIMA(p,d,q) model  
-    - the procedure outlined in the slides will be used, and after the p, d, q orders have been chosen they will be compared with the ARIMA found using auto.arima.  
-    - the method of comparison will be AIC and RMSE.  
 
-## ARIMA
+### ARIMA
 
-d) Perform Box-Jenkins method to fit ARIMA(p,d,q) model  
-    - the procedure outlined in the slides will be used, and after the p, d, q orders have been chosen they will be compared with the ARIMA found using auto.arima.  
-    - the method of comparison will be AIC and RMSE. 
+We've already stabelized the variance. The mean appears to be relatively constant throughout time. To double check, we'll utilize the Kwiatkowski-Phillips-Schmidt-Shin test of stationarity. In this test, the null hypothesis is that our time series is level or trend stationary. We get a p-value of 0.1, in which we fail to reject the null hypothesis -- this provides evidence that we do not need to do any differencing for mean-stabilization.
+
+```{r, warning = FALSE, echo = F}
+library(tseries)
+kpss.test(log(US_GDP))
+```
+
+Now we must determine what sort of ARMA(p,q) model to choose from. To do this, we will take a look at the ACF and PACF to make an educated guess at the order of p and q.
+
+```{r, echo = F}
+tsdisplay(log(less), lag.max = 30)
+```
+
+Due to the exponentially decreasing nature of subsequent lags after lag-1 in the ACF plot, and the single lag-1 spike in the PACF, this indicates that the best model will likely be ARMA(1,0). We'll do a comparison across all the models (RMSE, MAP, AICc) later. 
 
 ```{r}
-model <- auto.arima(less, lambda=0)
-autoplot(less) + autolayer(forecast(model))
-wha <- checkresiduals(model)
+model <- Arima(less, order = c(1,0,0), lambda = 0)
+checkresiduals(model)
 ```
+
+The Ljung-Box test indicates we fail to reject the hypothesis of white-noise residuals. Further, our residuals appear much more normally distributed (centered at 0) than the previous models.
+
+Finally, we'll take a look at the forecasts.
+
+```{r, echo = F}
+model <- auto.arima(less, lambda=0)
+autoplot(less) + autolayer(forecast(model, h = 6)) +
+  ggtitle("ARIMA(1,0,0) Forecasts") + ylab("US GDP") + theme_bw()
+```
+
+As you can see, the 80% and 95% confidence intervals on the forecasts are much more narrow, and these confidence intervals are more reliable than the previous Naive and Drift forecasts due to the normal distribution of the forecasts. 
+
+
+### Model Comparisons
+
+First, we will show that Naive and random walk with drift, and seasonal naive models are special cases of an ARIMA models!
+
+```{=html}
+<div class="centered">
+  <div>
+    <button class="small green button" name="hider" data-hide="proof" data-target-id="naive_arima" onclick="hideDiv(this)" value="on">Naive Proof</button>
+  </div>
+  <div>
+    <button class="small green button" name="hider" data-hide="proof" data-target-id="seasonal_arima" onclick="hideDiv(this)" value="off">Seasonal Proof</button>
+  </div>
+  <div>
+    <button class="small green button" name="hider" data-hide="proof" data-target-id="drift_arima" onclick="hideDiv(this)" value="off">Drift Proof</button>
+  </div>
+</div>
+```
+
+```{js, echo = F}
+function hideDiv(button){
+  var state = button.value;
+  var divs_to_hide = button.getAttribute("data-hide");
+  var div_to_show = button.getAttribute("data-target-id");
+  var div_hide_array = document.getElementsByName(divs_to_hide);
+  var button_off_array = document.getElementsByName(button.name);
+  function doit(arr, buttons = true){
+    if(buttons){
+      for(var x=0; x<arr.length; x++){
+        arr[x].value = "off"
+      }
+    } else {
+      for(var x=0; x<arr.length; x++){
+        arr[x].style.display = "none"
+      }
+    }
+  }
+  if (state == "on"){
+    doit(button_off_array)
+    doit(div_hide_array, false)
+  } else {
+    doit(div_hide_array, false)
+    document.getElementById(div_to_show).style.display = "block";
+    doit(button_off_array)
+    button.value = "on"
+  }
+}
+```
+
+
+<div id="naive_arima" name="proof" style="display: block">
+
+Theorem: Naive Forecasting model is equivalent to a specific ARIMA(p,d,q) model.
+
+Proof:
+
+Consider the modeling equation for the Naive model, and we will transform it into the modeling equation for ARIMA(0,1,0) with no intercept parameter.
+
+$$
+Y_t = Y_{t-1} + \epsilon_t \sim _{_{i.i.d.}} N(0,\sigma^2) \,\,\,\, (\text{Naive Model}) \\
+\iff Y_t-Y_{t-1} = \epsilon_t \sim _{_{i.i.d.}} N(0,\sigma^2) \\
+\iff Y^{\prime}_t = \epsilon_t \sim _{_{i.i.d.}} N(0,\sigma^2) \text{ such that } Y^{\prime}_t = Y_t - Y_{t-1}\,\,\,\, \\ (\text{ARIMA(0,1,0) Model})
+$$
+</div>
+<div id="seasonal_arima" name="proof" style="display: none">
+
+Theorem: A seasonal naive forecasting model (of seasonality frequency = m) is equivalent to a specific ARIMA(p,d,q)(P,D,Q) model.
+
+Proof:
+
+Consider the modeling equation for the seasonal naive model, and we will transform it into the modeling equation for ARIMA(0,0,0)(0,1,0) with an intercept parameter.
+
+$$
+Y_t =  Y_{t-m} + \epsilon_t \sim _{_{i.i.d.}} N(0,\sigma^2) \,\,\,\, (\text{Seasonal Naive Model}) \\
+\iff Y_t-Y_{t-m} = \mu + \epsilon_t \sim _{_{i.i.d.}} N(0,\sigma^2) \\
+\iff Y^{\prime}_t = \epsilon_t \sim _{_{i.i.d.}} N(0,\sigma^2) \text{ such that } Y^{\prime}_t = Y_t - Y_{t-m} \,\,\,\,  \\ (\text{ARIMA(0,0,0)(0,1,0) Model})
+$$
+</div>
+<div id="drift_arima" name="proof" style="display: none">
+
+Theorem: Random walk with drift forecasting model is equivalent to a specific ARIMA(p,d,q) model.
+
+Proof:
+
+Consider the modeling equation for the Random walk with drift model, and we will transform it into the modeling equation for ARIMA(0,1,0) with an intercept parameter.
+
+$$
+Y_t = \mu + Y_{t-1} + \epsilon_t \sim _{_{i.i.d.}} N(0,\sigma^2) \,\,\,\, (\text{Drift Model}) \\
+\iff Y_t-Y_{t-1} = \mu + \epsilon_t \sim _{_{i.i.d.}} N(0,\sigma^2) \\
+\iff Y^{\prime}_t = \mu + \epsilon_t \sim _{_{i.i.d.}} N(0,\sigma^2) \text{ such that } Y^{\prime}_t = Y_t - Y_{t-1} \\(\text{ARIMA(0,1,0) Model})
+$$
+</div>
+
+Now we'll compare Naive, Drift, ARIMA(1,0,0) and some surrounding models through AICc, test RMSE, test MAPE, and cross validation. 
+
+```{r, include = F}
+training <- window(US_GDP, end = c(2013))
+model_c <- c("naive", "drift", "hand.arima", "more_p", "more_q", "auto.arima")
+
+models <- list()
+models[["naive"]] <- Arima(training, order=c(0,1,0), include.mean = FALSE,lambda = 0)
+models[["drift"]] <- Arima(training, order=c(0,1,0), include.mean = TRUE,lambda = 0)
+models[["hand.arima"]] <- Arima(training, order=c(1,0,0),lambda = 0)
+models[['more_p']] <- Arima(training, order = c(2,0,0),lambda = 0)
+models[['more_q']] <- Arima(training, order = c(1,0,1),lambda = 0)
+models[["auto.arima"]] <- auto.arima(training)
+
+
+hs_arima <- accuracy(forecast(model, h = 6), test)
+for.metrics <- function(model){accuracy(forecast(model, h=6), test)}
+
+model.metrics <- lapply(models, for.metrics)
+
+
+a_fun <- function(x, h){forecast(Arima(x, order=c(0,1,0), include.mean = FALSE,lambda = 0),h=h)}
+
+cvfun <- list()
+cvfun[["naive"]] <- function(x, h){forecast(Arima(x, order=c(0,1,0), include.mean = FALSE,lambda = 0),h)}
+cvfun[["drift"]] <- function(x, h){forecast(Arima(x, order=c(0,1,0), include.mean = TRUE,lambda = 0), h)}
+cvfun[["hand.arima"]] <- function(x, h){forecast(Arima(x, order=c(1,0,0),lambda = 0),h)}
+cvfun[['more_p']] <- function(x, h){forecast(Arima(x, order = c(2,0,0),lambda = 0),h)}
+cvfun[['more_q']] <- function(x, h){forecast(Arima(x, order = c(1,0,1),lambda = 0),h)}
+cvfun[["auto.arima"]] <- function(x,h){forecast(auto.arima(x), h)}
+
+#apply.this <- function(fun){tsCV(US_GDP, fun)}
+RMSE <- function(CVerrors){sqrt(mean(CVerrors^2, na.rm=TRUE))}
+MAPE <- function(CVerrors){mean(abs(CVerrors/US_GDP), na.rm=TRUE)}
+#CV_errors <- lapply(cvfun, apply.this)
+```
+
+
+```{r, include=F, eval=F}
+cv_results <- list("rmse" = list(), "mape"=list())
+x <- 1:12
+for(i in x){
+  apply.this <- function(fun){tsCV(US_GDP, fun, h = i)}
+  CV_errors <- lapply(cvfun,apply.this)
+  CV_rmse <- lapply(CV_errors, RMSE)
+  CV_mape <- lapply(CV_errors, MAPE)
+  for (j in model_c){
+    cv_results[["rmse"]][[j]] <- c(cv_results[["rmse"]][[j]], CV_rmse[[j]])
+    cv_results[["mape"]][[j]] <- c(cv_results[["mape"]][[j]], CV_mape[[j]])
+  }
+}
+
+rmse_cv <-  do.call(cbind.data.frame, cv_results[["rmse"]])
+mape_cv <-  do.call(cbind.data.frame, cv_results[["mape"]])
+rmse_cv <- as.tbl(cbind(rmse_cv, x))
+mape_cv <- as.tbl(cbind(mape_cv, x))
+```
+
+
+```{r, include=F, eval=F}
+library(RColorBrewer)
+
+rmse_cv_plot <- ggplot(data = rmse_cv, aes(x= x)) + 
+  geom_line(aes(y = naive, col = "Naive"))+
+  geom_line(aes(y = drift, col = "Drift"))+
+  geom_line(aes(y = hand.arima, col = "ARIMA(1,0,0)"))+
+  geom_line(aes(y = more_p, col = "ARIMA(2,0,0)"))+
+  geom_line(aes(y = more_q, col = "ARIMA(1,0,1)"))+
+  geom_line(aes(y = auto.arima, col = "Auto ARIMA"))+
+  scale_color_discrete(name = "Models")+
+  labs(color = "Models")+ ylab("RMSE") +
+  scale_x_continuous(breaks = 1:12)+
+  scale_y_continuous(breaks = 15:29)+
+  #scale_color_manual(values=sample(col_vector, n))+
+  scale_color_brewer(palette = "Dark2")+
+  ggtitle("Cross validation RMSE")+
+  theme_bw()
+ggsave(rmse_cv_plot, filename = "rmse.svg", device = "svg", path = "./images/cross_validation/")
+
+mape_cv_plot <- ggplot(data = mape_cv, aes(x= x)) + 
+  geom_line(aes(y = naive, col = "Naive"))+
+  geom_line(aes(y = drift, col = "Drift"))+
+  geom_line(aes(y = hand.arima, col = "ARIMA(1,0,0)"))+
+  geom_line(aes(y = more_p, col = "ARIMA(2,0,0)"))+
+  geom_line(aes(y = more_q, col = "ARIMA(1,0,1)"))+
+  geom_line(aes(y = auto.arima, col = "Auto ARIMA"))+
+  scale_color_discrete(name = "Models")+
+  labs(color = "Models")+ ylab("MAPE") +
+  scale_x_continuous(breaks = 1:12)+
+  #scale_color_manual(values=sample(col_vector, n))+
+  scale_color_brewer(palette = "Dark2")+
+  ggtitle("Cross validation MAPE")+
+  theme_bw()
+ggsave(mape_cv_plot, filename = "mape.svg", device = "svg", path = "./images/cross_validation/")
+```
+
+
+```{js, echo=F}
+function changeCV(button){
+  var mape_img = document.getElementById("mape");
+  var rmse_img = document.getElementById("rmse");
+  console.log(button.value)
+  if (button.value == "mape"){
+    button.value = "rmse" ;
+    button.innerHTML = "Show MAPE";
+    mape_img.style.display = "none";
+    rmse_img.style.display = "block";
+  } else {
+    button.value = "mape";
+    button.innerHTML = "Show RMSE";
+    mape_img.style.display = "block";
+    rmse_img.style.display = "none";
+  }
+}
+
+
+
+```
+
+
+```{=html}
+<div class="centered">
+<button class="small blue button" value="mape" onclick="changeCV(this)">Show RMSE</button>
+</div>
+<img id="mape" src="images/cross_validation/mape.svg"></img>
+<img id="rmse" src="images/cross_validation/rmse.svg"style="display: none"></img>
+
+```
+
+
 
   c) Use cross validation to confirm which simple forecasting method is best.  
     - the forecast accuracy reported will be RMSE. 
@@ -376,7 +613,7 @@ wha <- checkresiduals(model)
     - The chosen forecasting model will be the one that performs best in the CV procedure  
 
 ```{r}
-tsdisplay(transformed)
+tsdisplay(log(US_GDP))
 ```
 
   e) Validate best model looking at metrics  
