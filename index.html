@@ -649,7 +649,7 @@ Y_t = Y_{t-1} + \epsilon_t \sim _{_{i.i.d.}} N(0,\sigma^2) \,\,\,\, (\text{Naive
 <p>Consider the modeling equation for the seasonal naive model, and we will transform it into the modeling equation for ARIMA(0,0,0)(0,1,0) with an intercept parameter.</p>
 <p><span class="math display">\[
 Y_t =  Y_{t-m} + \epsilon_t \sim _{_{i.i.d.}} N(0,\sigma^2) \,\,\,\, (\text{Seasonal Naive Model}) \\
-\iff Y_t-Y_{t-m} = \mu + \epsilon_t \sim _{_{i.i.d.}} N(0,\sigma^2) \\
+\iff Y_t-Y_{t-m} = \epsilon_t \sim _{_{i.i.d.}} N(0,\sigma^2) \\
 \iff Y^{\prime}_t = \epsilon_t \sim _{_{i.i.d.}} N(0,\sigma^2) \text{ such that } Y^{\prime}_t = Y_t - Y_{t-m} \,\,\,\,  \\ (\text{ARIMA(0,0,0)(0,1,0) Model})
 \]</span></p>
 </div>
