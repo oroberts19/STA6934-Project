@@ -29,6 +29,7 @@ library(zoo)
 library(cowplot)
 #install.packages("PerformanceAnalytics")
 library(PerformanceAnalytics)
+library(tseries)
 ```
 
 
@@ -45,7 +46,7 @@ rownames(wdi2) <- c("Country", "Value",1960:2019)
 colnames(wdi2) <- wdi2[2,]
 
 wdi <- wdi2[-(1:2),] 
-#wdi <- wdi %>% as.data.frame() %>%  mutate_each(funs(as.numeric))
+wdi <- wdi %>% as.data.frame() %>%  mutate_each(funs(as.numeric))
 row.names(wdi) <- row.names(wdi2)[3:length(row.names(wdi2))]
 wdi_ts <- ts(wdi, start = 1960)
 
