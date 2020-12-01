@@ -14,7 +14,7 @@ knit: (function(inputFile, encoding) {
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = F, error = F)
 ```
 
 ```{r, include=FALSE}
@@ -32,8 +32,20 @@ library(PerformanceAnalytics)
 library(tseries)
 ```
 
+# Introduction {.tabset .tabset-fade .tabset-pills}  
 
-```{r, echo = F, warning=F}
+## Project Objectives  
+
+...  
+
+
+## Data Description  
+
+...  
+
+## Preprocessing   
+
+```{r, warning=F}
 wdi_data <- read.csv('WDI2.csv', na.strings = c("..")) %>% 
   select(Country=Country.Code, Value=Series.Name, contains("X")) %>% 
   filter(Country=="USA") %>% 
@@ -46,12 +58,9 @@ rownames(wdi2) <- c("Country", "Value",1960:2019)
 colnames(wdi2) <- wdi2[2,]
 
 wdi <- wdi2[-(1:2),] 
-wdi <- wdi %>% as.data.frame() %>%  mutate_each(funs(as.numeric))
+wdi <- wdi %>% as.data.frame() %>%  mutate_each(funs(as.numeric)) %>% mutate_each(funs(as.factor))
 row.names(wdi) <- row.names(wdi2)[3:length(row.names(wdi2))]
 wdi_ts <- ts(wdi, start = 1960)
-
-
-
 ```
 
 
@@ -59,11 +68,13 @@ wdi_ts <- ts(wdi, start = 1960)
 US_GDP <- as.ts(ts(wdi[,"GDP (current US$)"], start = 1960, frequency = 1))
 ```
 
+# {-}  
+
 # Forecast US GDP growth   
 
+## Variance Stabilization: {.tabset .tabset-fade .tabset-pills}
 
-## **1) Variance Stabelization:**  
-
+### Constant Variance? Let us see...  
 
 We first must determine if our data has non-constant variance (through time). We will draw a one standard deviation band around our data calculated from a moving window. If our data has constant variance, then we should expect this band to be uniform width across time. Further, we'll look at a plot of the variance of our data over time, we should expect this plot to have an approximately constant mean across time, and for the variance of this plot to be quite small. 
 
@@ -120,6 +131,7 @@ function animateVariance(object){
 ```
 
 
+
 ```{r, eval=F, include=F}
 # Code to generate SVG graphics for the animations above. Very lightweight compared to .png files.
 mav_plot <- function(time_series, mav_size, titles = c("Window Size: ", "US GDP Moving Variance: "), ylabel = "US GDP"){
@@ -150,6 +162,8 @@ for(i in 3:20){
 }
 
 ```
+
+### What stabilization method shall we use?  
 
 It should be clear that we need to transform our data because the variance is not constant throughout time. Here's a comparison of the automatically selected BoxCox transformation (lambda is automatically selected) versus a log transformation: 
 
@@ -187,10 +201,6 @@ plot_to_save
 
 ```
 
-    
-  b) Compare forecasting models (naive, seasonal naive, drift).  
-    - the three simple forecasting models will be used to forecast 5 years past 2013.  
-    - the forecasts will be visualized with their shaded confidence intervals.  
  
 ## Forecasting {.tabset .tabset-fade .tabset-pills}
  
@@ -611,9 +621,11 @@ function changeCV(button){
 
 ```
 
-## Anaylsis of two Time Series Variables {.tabset .tabset-fade .tabset-pills}  
+# Anaylsis of Two Time Series Variables 
 
-### Classic Regression  
+## Classic Regression {.tabset .tabset-fade .tabset-pills}  
+
+### Preprocessing Data   
 
 ```{r}
 regression_data<- wdi[35:nrow(wdi),c(3,15)]
@@ -621,9 +633,8 @@ colnames(regression_data)<- c("share_youth_NEET", "unemployment_total")
 reg_data <- transform(regression_data, share_youth_NEET = as.numeric(share_youth_NEET), unemployment_total = as.numeric(unemployment_total))
 ```
 
-a) Confirm correlation between explanatory and response variable  
-    - that is, report the correlation with plot of the relationship between share of youth NEETs and unemployment rate in the US   \
-    
+### Correlation between ShareofyouthNEET and Unemployment  
+
 The correlation between the share of youth that are not employed, in education or job training and the overall unemployment rate across time is 0.90. The strength of this correlation, as well as the clear linear trend depicted in the scatterplot provided, motivates us to further study the plausibility of a significant relationship between the two variables.  
 
 
@@ -633,7 +644,8 @@ chart.Correlation(reg_data, histogram = TRUE, pch=19)
 
   
     
-  b) Fit linear simple regression model  
+### Classic regression of Unemployment ~ share of youth NEET  
+
     - the regression of unemployment ~ share of youth NEET  
     
 ```{r}
@@ -646,10 +658,12 @@ plot(reg_data$share_youth_NEET, reg_data$unemployment_total)
 abline(lm_fit)
 ```
 
-  c) Diagnose residuals (we assume assumptions will be violated).  
-    - check the QQ-norm plot (are the residuals normally distributed), and using the Residual v. Fitted (constant variance and centered at mean 0).  
-    - observe results of Breusch-Godfray test, Residuals v Time, histogram of residuals, and ACF plot to discus whether the residuals are white noise. If the residuals are serially correlated that is a sign that the results cannot be trusted.  
-    
+### Full Modeling Equation and Fitted Model Equation  
+
+...
+
+### Residuals Diagnostics for Classic Linear Regression  
+
 The QQ-norm plot reveals that the residuals are fairly normally distributed, this is verified by the histogram of residuals. While the distribution is not perfectly normal, given that there are only 26 observations of each variable, it can be considered normal enough. The Breusch-Godfrey test results in a p-value of 0.001 which is small enough to reject the null hypothesis and concluse that the residuals are not white noise (i.e. that there is evidence of autocorrelation and serial dependence). The residuals versus time plot also reveals that the residuals are not centered around a constant mean, even though the variance is consistent across time.  
 
 ```{r}
@@ -661,7 +675,10 @@ checkresiduals(lm_fit)
 ```
 
 
-### Dynamic regression  
+## Dynamic regression {.tabset .tabset-fade .tabset-pills}  
+
+### Motivations to use Dynamic Regression  
+
 Due to the residuals being autocorrelated, the $\epsilon_t$ need to be modeled via ARIMA. Using tsdisplay() and ndiffs() to determine the order of pdq, the plot of the fit shows a clear AR signature ACF and PACF plot, with an exponential decay from the ACF and one spike on the PACF. Thus p,d,q = (1, 1, 0).  
 
 ```{r}
@@ -670,23 +687,29 @@ tsdisplay(resid(lm_fit))
 
 ```
 
+### Fitting with auto.arima()  
+
 Fitting with auto.arima(), and checking residuals, the residuals plots of the fitted model show mean approximately 0 though constant variance is questionable, an approximately normal distribution of residuals, 100% of autocorrelations within the white noise bands, and a large pvalue which results in failing to reject the null hypothesis (residuals are white noise). Thus, the fit is good because the residuals are white noise.  
 
 ```{r}
-auto_arima_fit<- auto.arima(regression_data[,"unemployment_total"], xreg = as.matrix(regression_data[,"share_youth_NEET"]))
+auto_arima_fit<- auto.arima(reg_data[,"unemployment_total"], xreg = as.matrix(reg_data[,"share_youth_NEET"]))
 checkresiduals(auto_arima_fit)
 
 ```
 
+### Choosing ARIMA fit  
+
 Checking the residuals from the chosen fit to choose a final model between this one and auto.arima(), the residuals plots of the fitted model show mean approximately 0 though constant variance is questionable, less of a normal distribution than previously, 100% of autocorrelations within the white noise bands, and a large pvalue which results in failing to reject the null hypothesis (residuals are white noise). Thus, the fit is good because the residuals are white noise.
 
 ```{r}
-chosen_fit<- Arima(regression_data[,"unemployment_total"], order = c(1,1,0), xreg = as.matrix(regression_data[,"share_youth_NEET"]))
+chosen_fit<- Arima(reg_data[,"unemployment_total"], order = c(1,1,0), xreg = as.matrix(reg_data[,"share_youth_NEET"]))
 checkresiduals(chosen_fit)
 
 ```
 
 The model from auto.arima() appears to be a better fit due to a higher pvalue from the Ljung-Box test, so the full modeling equation ARMA(p,q) is: 
+
+### Modeling Formula  
 
 $$ unemployment'_t = unemployment_t - unemployment_{t-1} $$
 $$ youthNEET'_t = youthNEET_t - youthNEET_{t-1} $$
@@ -694,6 +717,9 @@ $$ youthNEET'_t = youthNEET_t - youthNEET_{t-1} $$
 $$ unemployment'_t = \beta_1youthNEET'_t + \epsilon_t \ \ \ \epsilon_t \sim ARMA(0,0) $$
 
 $$ \epsilon_t =  \mu + \eta_t \ \ \ \eta_t \sim_{iid} N(0, \sigma^2) $$
+
+### Comparing Dynamic Regression Results with Classic  
+
 
 The ARMA model results in a slightly higher estimate, lower standard error, narrower confidence intervals, and a smaller pvalue for the predictor than the linear regression. The ARMA model results should be trusted more, because comparing the plots of the residuals, the assumptions were confirmed only for the ARMA model.  
 
@@ -711,6 +737,8 @@ confint(auto_arima_fit)
 
 ```
 
+### Fitted Equation and Interpretations  
+
 The fitted ARMA equation is:    
 $$ \hat{unemployment'} = 0.969youthNEET'$$  
 $$ \hat{\epsilon} = 0.131 $$
@@ -718,4 +746,13 @@ $$ \hat{\epsilon} = 0.131 $$
 The interpretation of the predictor is as follows:  
 For a 1% increase in consecutive yearly change in % of youth not in education or employment training, consecutive yearly change in unemployment rate increases by 0.969% on average.
     
+# Conclusions {.tabset .tabset-fade .tabset-pills}  
+
+## Forecasting Conclusions  
+
+...  
+
+## Regression Conclusions   
+
+...  
 
