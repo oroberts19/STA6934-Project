@@ -611,27 +611,10 @@ function changeCV(button){
 
 ```
 
+## Anaylsis of two Time Series Variables {.tabset .tabset-fade .tabset-pills}  
 
+### Classic Regression  
 
-
-  c) Use cross validation to confirm which simple forecasting method is best.  
-
-    - the forecast accuracy reported will be RMSE. 
-    - CV will be performed similarly to the way it was used in a bonus homework question earlier in the semester.  
-    - The chosen forecasting model will be the one that performs best in the CV procedure  
-
-```{r}
-tsdisplay(log(US_GDP))
-
-```
-
-  e) Validate best model looking at metrics  
-    - AIC and Test RMSE will be used to choose the between the selected ARIMA and the selected simple forecasting method. 
-    - these metrics were chosen instead of cross validation because of manual selection process of the best ARIMA model.  
-    
-
-  f) Check residuals to further validate best model choice as well as confirm goodness of fit and quality of predictions.  
-  
 ```{r}
 regression_data<- wdi[35:nrow(wdi),c(3,15)]
 colnames(regression_data)<- c("share_youth_NEET", "unemployment_total")
@@ -677,20 +660,8 @@ plot(lm_fit, which = c(1:2))
 checkresiduals(lm_fit)
 ```
 
-  f) Check residuals to further validate best model choice as well as confirm goodness of fit and quality of predictions.
-  
 
-## Linear regression  
-
-```{r}
-regression_data<- wdi[35:nrow(wdi),]
-colnames(regression_data)[c(3,15)]<- c("share_youth_NEET", "unemployment_total")
-lm_fit<- lm(unemployment_total ~ share_youth_NEET, data = regression_data)
-checkresiduals(lm_fit)
-
-```
-
-## Dynamic regression  
+### Dynamic regression  
 Due to the residuals being autocorrelated, the $\epsilon_t$ need to be modeled via ARIMA. Using tsdisplay() and ndiffs() to determine the order of pdq, the plot of the fit shows a clear AR signature ACF and PACF plot, with an exponential decay from the ACF and one spike on the PACF. Thus p,d,q = (1, 1, 0).  
 
 ```{r}
