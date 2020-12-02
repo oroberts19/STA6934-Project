@@ -1,7 +1,7 @@
 ---
 title: "Forecasting"
 author: "Ashley Brockway, Olivia Roberts, and Justin Tienken-Harder"
-date: "11/25/2020"
+date: "12/02/2020"
 output: 
   html_document:
     theme: cosmo
@@ -19,7 +19,6 @@ knitr::opts_chunk$set(echo = TRUE, warning = F, error = F)
 
 ```{r, include=FALSE}
 #Packages 
-
 library(dplyr)
 library(ggplot2)
 library(forecast)
@@ -27,21 +26,33 @@ library(fpp2)
 library(fma)
 library(zoo)
 library(cowplot)
-#install.packages("PerformanceAnalytics")
 library(PerformanceAnalytics)
 library(tseries)
 ```
 
 # Introduction {.tabset .tabset-fade .tabset-pills}  
 
+## Data Description  
+The source of our data is the World Development Index found on the World Bank's data explorer. The WDI was chosen because of it's expansive time series data for countries across the world. The variables explored in this project include:  
+
+* Unemployment, total (% of total labor force) (national estimate)    
+  + The percent share of the labor force in US that is out of work but seeking and available for work  
+* Share of youth not in education, employment or training, total (% of youth population)  
+  + The share of youth not in education, employment or training (also known as "the NEET rate") conveys the number of young persons not in education, employment or training as a percentage of the total youth population, which is defined as individuals aged 15-24   
+* GDP (current USD)    
+  + Gross Domestic Product measured in Current USD  
+  
+This time series data has a yearly frequency. Total unemployment and GDP is observed from 1960-2019 (60 years), while share of youth not participating in education, employment, or training is observed from 1994-2019 (26 years). 
+Thus, when working with the time series forecasting and fitting, 60 observations are used, but only 26 are used for the dynamic regression.
+
 ## Project Objectives  
 
-...  
+With our time series data we aim to:  
+1. Forecast US GDP and compare results using multiple techniques  
+2. Implement the Box-Jenkins method to model the data with ARIMA(p,d,q) and compare with auto.arima, and validate the best model looking at metrics  
+3. Analyze how share of youth not in education/training (share of youth NEET) explains unemployment rate using dynamic regression after confirming that the assumptions of linear regression are violated  
 
-
-## Data Description  
-
-...  
+Our forecasts and analysis gives us the opportunity to predict future GDP and explore how relationships between economic indicators influence each other.  
 
 ## Preprocessing   
 
@@ -51,7 +62,7 @@ wdi_data <- read.csv('WDI2.csv', na.strings = c("..")) %>%
   filter(Country=="USA") %>% 
   data.frame()
 
-#wdi1 <- wdi_data[c(10, 11, 15, 16, 17, 18),]
+wdi1 <- wdi_data[c(10, 11, 15, 16, 17, 18),]
 wdi2 <- t(wdi_data)
 
 rownames(wdi2) <- c("Country", "Value",1960:2019)
@@ -625,36 +636,45 @@ function changeCV(button){
 
 ## Classic Regression {.tabset .tabset-fade .tabset-pills}  
 
-### Preprocessing Data   
 
-```{r}
+```{r, include=F}
+wdi_data <- read.csv('WDI2.csv', na.strings = c("..")) %>% 
+  select(Country=Country.Code, Value=Series.Name, contains("X")) %>% 
+  filter(Country=="USA") %>% 
+  data.frame()
+wdi2 <- t(wdi_data)
+rownames(wdi2) <- c("Country", "Value",1960:2019)
+colnames(wdi2) <- wdi2[2,]
+wdi <- wdi2[-(1:2),] 
+wdi <- wdi %>% as.data.frame() %>%  mutate_each(funs(as.numeric))
+row.names(wdi) <- row.names(wdi2)[3:length(row.names(wdi2))]
+wdi_ts <- ts(wdi, start = 1960)
 regression_data<- wdi[35:nrow(wdi),c(3,15)]
 colnames(regression_data)<- c("share_youth_NEET", "unemployment_total")
-reg_data <- transform(regression_data, share_youth_NEET = as.numeric(share_youth_NEET), unemployment_total = as.numeric(unemployment_total))
+
 ```
 
 ### Correlation between ShareofyouthNEET and Unemployment  
 
-The correlation between the share of youth that are not employed, in education or job training and the overall unemployment rate across time is 0.90. The strength of this correlation, as well as the clear linear trend depicted in the scatterplot provided, motivates us to further study the plausibility of a significant relationship between the two variables.  
-
+The correlation between the share of youth that are not employed, in education or job training and the overall unemployment rate across time is 0.84 The strength of this correlation, as well as the clear linear trend depicted in the scatterplot provided, motivates us to further study the plausibility of a significant relationship between the two variables.  
 
 ```{r}
-chart.Correlation(reg_data, histogram = TRUE, pch=19)
+chart.Correlation(regression_data, histogram = TRUE, pch=19)  
+
 ```
 
-  
-    
+
 ### Classic regression of Unemployment ~ share of youth NEET  
 
     - the regression of unemployment ~ share of youth NEET  
     
 ```{r}
-lm_fit <- lm(unemployment_total ~ share_youth_NEET, data = reg_data) 
+lm_fit <- lm(unemployment_total ~ share_youth_NEET, data = regression_data) 
 summary(lm_fit)
 ```
 
 ```{r}
-plot(reg_data$share_youth_NEET, reg_data$unemployment_total) 
+plot(regression_data$share_youth_NEET, regression_data$unemployment_total) 
 abline(lm_fit)
 ```
 
@@ -679,59 +699,47 @@ checkresiduals(lm_fit)
 
 ### Motivations to use Dynamic Regression  
 
-Due to the residuals being autocorrelated, the $\epsilon_t$ need to be modeled via ARIMA. Using tsdisplay() and ndiffs() to determine the order of pdq, the plot of the fit shows a clear AR signature ACF and PACF plot, with an exponential decay from the ACF and one spike on the PACF. Thus p,d,q = (1, 1, 0).  
+Due to the residuals being autocorrelated, the $\epsilon_t$ need to be modeled via ARIMA. Running ndiffs() shows it is necessary to perform consecutive differencing for stationarity. The differenced residuals are plotted, and because all autocorrelations are within the white noise bands p and q are both 0. Thus p,d,q = (0, 1, 0).  
 
 ```{r}
 ndiffs(resid(lm_fit))
-tsdisplay(resid(lm_fit))
+tsdisplay(diff(lm_fit$residuals), main = "Differenced residuals from linear model")
 
 ```
 
 ### Fitting with auto.arima()  
-
-Fitting with auto.arima(), and checking residuals, the residuals plots of the fitted model show mean approximately 0 though constant variance is questionable, an approximately normal distribution of residuals, 100% of autocorrelations within the white noise bands, and a large pvalue which results in failing to reject the null hypothesis (residuals are white noise). Thus, the fit is good because the residuals are white noise.  
+We check the results from auto.arima() to confirm what was established above. Auto-ARIMA also results in p,d,q = (0,1,0). The residuals plots of the fitted model shows a mean of approximately 0, though constant variance is questionable, and a mostly normal distribution of residuals. 100% of autocorrelations are within the white noise bands. A large pvalue is observed from the Ljung-Box test which results in failing to reject the null hypothesis (residuals are white noise) and supports the visual that the residuals are white noise. Thus, the fit is good because the residuals are white noise.   
 
 ```{r}
-auto_arima_fit<- auto.arima(reg_data[,"unemployment_total"], xreg = as.matrix(reg_data[,"share_youth_NEET"]))
+auto_arima_fit<- auto.arima(regression_data[,"unemployment_total"], xreg = as.matrix(regression_data[,"share_youth_NEET"]))
 checkresiduals(auto_arima_fit)
 
 ```
 
-### Choosing ARIMA fit  
-
-Checking the residuals from the chosen fit to choose a final model between this one and auto.arima(), the residuals plots of the fitted model show mean approximately 0 though constant variance is questionable, less of a normal distribution than previously, 100% of autocorrelations within the white noise bands, and a large pvalue which results in failing to reject the null hypothesis (residuals are white noise). Thus, the fit is good because the residuals are white noise.
-
-```{r}
-chosen_fit<- Arima(reg_data[,"unemployment_total"], order = c(1,1,0), xreg = as.matrix(reg_data[,"share_youth_NEET"]))
-checkresiduals(chosen_fit)
-
-```
-
-The model from auto.arima() appears to be a better fit due to a higher pvalue from the Ljung-Box test, so the full modeling equation ARMA(p,q) is: 
 
 ### Modeling Formula  
+The full modeling equation ARMA(0,0) is: 
 
 $$ unemployment'_t = unemployment_t - unemployment_{t-1} $$
-$$ youthNEET'_t = youthNEET_t - youthNEET_{t-1} $$
+$$ youthNEET'_t = youthNEET_t - youthNEET_{t-1} $$  
 
-$$ unemployment'_t = \beta_1youthNEET'_t + \epsilon_t \ \ \ \epsilon_t \sim ARMA(0,0) $$
 
-$$ \epsilon_t =  \mu + \eta_t \ \ \ \eta_t \sim_{iid} N(0, \sigma^2) $$
+$$ unemployment'_t = \mu + \beta_1youthNEET'_t + \epsilon_t \ \ \ \epsilon_t \sim_{iid} N(0, \sigma^2) $$
 
-### Comparing Dynamic Regression Results with Classic  
-
+### Comparing Dynamic Regression Results with Classic Linear Regression 
 
 The ARMA model results in a slightly higher estimate, lower standard error, narrower confidence intervals, and a smaller pvalue for the predictor than the linear regression. The ARMA model results should be trusted more, because comparing the plots of the residuals, the assumptions were confirmed only for the ARMA model.  
 
+**Linear Model fit**  
 ```{r}
 library(lmtest)
-print("Linear Regression model coefficients")
 summary(lm_fit)
 confint(lm_fit)
 
-cat("\n")
+```
 
-print("ARIMA model coefficients")
+**ARIMA(0,1,0) fit**  
+```{r}
 coeftest(auto_arima_fit)
 confint(auto_arima_fit)
 
@@ -740,11 +748,9 @@ confint(auto_arima_fit)
 ### Fitted Equation and Interpretations  
 
 The fitted ARMA equation is:    
-$$ \hat{unemployment'} = 0.969youthNEET'$$  
-$$ \hat{\epsilon} = 0.131 $$
-
-The interpretation of the predictor is as follows:  
-For a 1% increase in consecutive yearly change in % of youth not in education or employment training, consecutive yearly change in unemployment rate increases by 0.969% on average.
+$$ \hat{unemployment'} = 0.131 + 0.969youthNEET'$$  
+The interpretation of the predictor is as follows: for a 1% increase in consecutive yearly change in % of youth not in education or employment training, consecutive yearly change in unemployment rate increases by 0.969% on average.    
+The interpretation of the drift is as follows: the average consecutive yearly change in unemployment rate is 0.131%.      
     
 # Conclusions {.tabset .tabset-fade .tabset-pills}  
 
