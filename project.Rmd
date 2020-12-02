@@ -711,7 +711,7 @@ summary(lm_fit)
 ```
 
 ```{r}
-plot(regression_data$share_youth_NEET, regression_data$unemployment_total, main = "Best Fit Line: Unemployment ~ Share of Youth NEET", xlab="Unemployment (%)", ylab="Share of Youth NEET (%) ")
+plot( regression_data$share_youth_NEET, regression_data$unemployment_total, main = "Best Fit Line: Unemployment ~ Share of Youth NEET", ylab="Unemployment (%)", xlab="Share of Youth NEET (%) ")
 abline(lm_fit)
 ```
 
@@ -797,8 +797,14 @@ The interpretation of the drift is as follows: the average consecutive yearly ch
 
 ## Forecasting Conclusions  
 
-...  
+  The main conclusion of our forecasting exploration is that choosing a model for forecasting depends on how large the forecasting threshold is as well as what metric/ method and metric the model's performance is to be evaluated under. For a forecasting threshold of 1 year using RMSE produced with cross validation, we would choose ARIMA(2, 1, 1). RMSE is chosen because MAPE selects forecasts that are underestimated on average. Considering Test RMSE the selected model would be ARIMA(0,2,1) which was verified to not be overdifferenced. When compared with the performance of lower compute methods like NAIVE, we can see a great improvement on performance. 
 
 ## Regression Conclusions   
 
-...  
+For the regression of Unemployment ~ share of youth NEET the dynamic regression performed better according to the residual diagnostics. Our inference was also more trustworthy than that from the classical regression, acquiring narrower confidence intervals and a more significant p-value for our predictor. This led to our conclusion that there is evidence of a statistically significant relationship between the predictor and the response. However, this conclusion is matched with a thicc set of limitations. 
+  1. The data set only has 26 observations  
+  2. We only used 1 predictor and future studies should include more controls for possible lurking variables (for example times of economic contraction being coded as structural breaks)  
+  
+## Don't Cry because its over, smile because it happened :) 
+
+![](./images/meme/meme.jfif)
