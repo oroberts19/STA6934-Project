@@ -749,7 +749,7 @@ confint(auto_arima_fit)
 
 The fitted ARMA equation is:    
 $$ \hat{unemployment'} = 0.131 + 0.969youthNEET'$$  
-The interpretation of the predictor is as follows: for a 1% increase in consecutive yearly change in % of youth not in education or employment training, consecutive yearly change in unemployment rate increases by 0.969% on average.    
+The interpretation of the predictor is as follows: for a 1% increase in consecutive yearly change in share of youth not in education or employment training, consecutive yearly change in unemployment rate increases by 0.969% on average.    
 The interpretation of the drift is as follows: the average consecutive yearly change in unemployment rate is 0.131%.      
     
 # Conclusions {.tabset .tabset-fade .tabset-pills}  
