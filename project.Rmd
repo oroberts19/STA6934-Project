@@ -1,5 +1,5 @@
 ---
-title: "Forecasting"
+title: "First Final of Final Semester: Economic Data and Version Control Woes"
 author: "Ashley Brockway, Olivia Roberts, and Justin Tienken-Harder"
 date: "12/02/2020"
 output:
@@ -693,7 +693,7 @@ regression_data <- regression_data[,2:3]
 
 ### Correlation between ShareofyouthNEET and Unemployment  
 
-The correlation between the share of youth that are not employed, in education or job training and the overall unemployment rate across time is 0.84 The strength of this correlation, as well as the clear linear trend depicted in the scatterplot provided, motivates us to further study the plausibility of a significant relationship between the two variables.  
+The correlation between the share of youth that are not employed, in education or job training and the overall unemployment rate across time is 0.84 The strength of this correlation, as well as the somewhat linear trend depicted in the scatterplot provided, motivates us to further study the plausibility of a significant relationship between the two variables.  
 
 ```{r}
 chart.Correlation(regression_data, histogram = TRUE, pch=19)  
@@ -703,32 +703,36 @@ chart.Correlation(regression_data, histogram = TRUE, pch=19)
 
 ### Classic regression of Unemployment ~ share of youth NEET  
 
-    - the regression of unemployment ~ share of youth NEET  
-
+  The regression of unemployment ~ share of youth NEET results results in a positive statistically significant relationship between share of youth NEET and unemployment. The Resulting $R^2$ value is 0.71. The Best fit line plot backs up the positive relationship seen in the coefficient for the predictor.  
+  
 ```{r}
 lm_fit <- lm(unemployment_total ~ share_youth_NEET, data = regression_data)
 summary(lm_fit)
 ```
 
 ```{r}
-plot(regression_data$share_youth_NEET, regression_data$unemployment_total)
+plot(regression_data$share_youth_NEET, regression_data$unemployment_total, main = "Best Fit Line: Unemployment ~ Share of Youth NEET", xlab="Unemployment (%)", ylab="Share of Youth NEET (%) ")
 abline(lm_fit)
 ```
 
 ### Full Modeling Equation and Fitted Model Equation  
 
-...
+The full modeling equation for the classic regression:  
+
+$$unemployment_i \, = \, \beta_0 \, + \, \beta_1youthNEET_i \, + \, \epsilon_i, \\ \epsilon_i \sim _{i.i.d.} N(0, \sigma^2) \\ i \, = \, 1, 2, 3, ..., n$$  
+
+$$\hat{unemployment_i} \, = \, - \, 7.3 \, + \, 0.77youthNEET_i$$
 
 ### Residuals Diagnostics for Classic Linear Regression  
 
-The QQ-norm plot reveals that the residuals are fairly normally distributed, this is verified by the histogram of residuals. While the distribution is not perfectly normal, given that there are only 26 observations of each variable, it can be considered normal enough. The Breusch-Godfrey test results in a p-value of 0.001 which is small enough to reject the null hypothesis and concluse that the residuals are not white noise (i.e. that there is evidence of autocorrelation and serial dependence). The residuals versus time plot also reveals that the residuals are not centered around a constant mean, even though the variance is consistent across time.  
+The QQ-norm plot reveals that the residuals are fairly normally distributed, this is verified by the histogram of residuals. While the distribution is not perfectly normal, given that there are only 26 observations of each variable, it can be considered normal enough. The Breusch-Godfrey test results in a p-value of 0.001 which is small enough to reject the null hypothesis and conclude that the residuals are not white noise (i.e. that there is evidence of autocorrelation and serial dependence). The residuals versus time plot also reveals that the residuals are not centered around a constant mean, even though the variance is consistent across time.  
 
 ```{r}
 plot(lm_fit, which = c(1:2))
 ```
 
 ```{r}
-checkresiduals(lm_fit)
+checkresiduals(lm_fit) 
 ```
 
 
