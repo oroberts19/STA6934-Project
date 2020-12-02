@@ -309,6 +309,7 @@ The Ljung-Box test, with a p-value of 0.515, helps us fail to reject instances o
 
 ```{=html}
 <div class="centered">
+  <div></div>
   <div>
     <button class="small red button" name="drift_forecast" onclick="updateForecast(this)" value="original.svg">Original Scale Forecast</button>
   </div>
@@ -320,6 +321,7 @@ The Ljung-Box test, with a p-value of 0.515, helps us fail to reject instances o
   <div>
     <button class="small red button" name="drift_forecast" onclick="updateForecast(this)" value="log.svg">Log Scale Forecast</button>
   </div>
+  <div></div>
 </div>
 
 
@@ -684,19 +686,8 @@ ggplot(bar_data, aes(fill=name, y=value, x=name)) +
 
 
 ```{r, include=F}
-wdi_data <- read.csv('WDI2.csv', na.strings = c("..")) %>%
-  select(Country=Country.Code, Value=Series.Name, contains("X")) %>%
-  filter(Country=="USA") %>%
-  data.frame()
-wdi2 <- t(wdi_data)
-rownames(wdi2) <- c("Country", "Value",1960:2019)
-colnames(wdi2) <- wdi2[2,]
-wdi <- wdi2[-(1:2),]
-wdi <- wdi %>% as.data.frame() %>%  mutate_each(funs(as.numeric))
-row.names(wdi) <- row.names(wdi2)[3:length(row.names(wdi2))]
-wdi_ts <- ts(wdi, start = 1960)
-regression_data<- wdi[35:nrow(wdi),c(3,15)]
-colnames(regression_data)<- c("share_youth_NEET", "unemployment_total")
+regression_data <- read.csv('regression.csv')
+regression_data <- regression_data[,2:3]
 
 ```
 
